@@ -169,3 +169,5 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - **Despesas**: não são controladas no sistema; relatórios mostram vendas, comissões, taxas e o que sobra para o salão
 - **LGPD**: excluir cliente apaga cadastro, ficha, anotações, saldo e agendamentos; comandas fechadas ficam no financeiro sem o nome
 - **Testes de segurança** em `supabase/tests/*.sql` (rodam e desfazem tudo): `npx supabase db query --linked -f supabase/tests/<arquivo>.sql`
+- **Configurações**: acesso de profissionais continua pelo e-mail em Equipe + criar o login no painel do Supabase (sem chave secreta no sistema). Dias de pagamento são **dois dias do mês configuráveis** (padrão 1 e 16): cada período vai de um dia de pagamento até a véspera do seguinte
+- **PWA**: ícone do app usa só o **símbolo** do logo sobre fundo escuro; o service worker não guarda dados (só a página offline). Instalação no celular só funciona depois de publicado (https)
