@@ -3,6 +3,8 @@ import { AlertTriangle } from "lucide-react";
 import { Cartao, Titulo } from "@/components/ui";
 import { exigirEquipe } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
+import { formatarReais, hojeISO } from "@/lib/formato";
+import { periodoDaData } from "@/lib/periodo";
 
 export default async function Inicio() {
   const { profissional } = await exigirEquipe();
@@ -10,8 +12,17 @@ export default async function Inicio() {
   const ehDono = profissional.papel === "dono";
 
   const avisos: { texto: string; href: string }[] = [];
+  const supabase = await criarClienteServidor();
+  let aReceber: { valor: number; dia: string } | null = null;
+  if (!ehDono) {
+    const periodo = periodoDaData(hojeISO());
+    const { data } = await supabase.rpc("extrato_profissional", { p_profissional_id: profissional.id, p_inicio: periodo.inicio, p_fim: periodo.fim });
+    const linhas = (data ?? []) as { valor_centavos: number; pagamento_id: string | null }[];
+    aReceber = { valor: linhas.filter((l) => !l.pagamento_id).reduce((t, l) => t + l.valor_centavos, 0), dia: periodo.pagamento.split("-").reverse().slice(0, 2).join("/") };
+  }
   if (ehDono) {
-    const supabase = await criarClienteServidor();
+    const { count: abertas } = await supabase.from("comandas").select("id", { count: "exact", head: true }).eq("status", "aberta");
+    if (abertas) avisos.push({ texto: `${abertas} comanda(s) aberta(s)`, href: "/comandas" });
     const { data: produtos } = await supabase.from("produtos").select("nome, estoque, estoque_minimo").eq("ativo", true);
     const baixos = (produtos ?? []).filter((p) => p.estoque <= p.estoque_minimo);
     if (baixos.length) {
@@ -24,6 +35,9 @@ export default async function Inicio() {
 
   const atalhos = ehDono
     ? [
+        { href: "/agenda", titulo: "Agenda", texto: "Atendimentos do dia de toda a equipe." },
+        { href: "/comandas", titulo: "Comandas", texto: "Comandas abertas e fechamento." },
+        { href: "/comissoes", titulo: "Comissões", texto: "A pagar no período e pagamentos feitos." },
         { href: "/servicos", titulo: "Serviços e produtos", texto: "Cadastre serviços, produtos, pacotes e categorias." },
         { href: "/configuracoes/comissoes", titulo: "Regras de comissão", texto: "Percentual padrão, por categoria e por serviço." },
         { href: "/equipe", titulo: "Equipe", texto: "Profissionais, e-mails de acesso e cores da agenda." },
@@ -37,6 +51,16 @@ export default async function Inicio() {
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
       <Titulo>Olá, {primeiroNome}!</Titulo>
+
+      {aReceber && (
+        <Link href="/comissoes" className="block">
+          <Cartao className="border-rose-claro bg-agendado-fundo/40">
+            <p className="text-sm text-suave">Você recebe em {aReceber.dia}</p>
+            <p className="font-titulo text-3xl font-bold text-rose">{formatarReais(aReceber.valor)}</p>
+            <p className="text-xs text-suave">Comissões + caixinhas do período · ver extrato</p>
+          </Cartao>
+        </Link>
+      )}
 
       {avisos.map((a) => (
         <Link key={a.href} href={a.href} className="flex items-start gap-3 rounded-xl border border-aguardando/30 bg-aguardando-fundo p-4 text-sm text-aguardando">

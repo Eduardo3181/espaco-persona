@@ -72,10 +72,9 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - Venda de produto na comanda baixa o estoque
 
 ### 4.5 Comissões
-- Abas: **A pagar**, **Pagas** e **Vales**
+- Abas: **A pagar** e **Pagas** (o salão **não usa vales** — decisão do dono em 16/10/2026)
 - A pagar, por profissional e período: comissões + caixinhas − vales = total a receber. Botão "Registrar pagamento"
 - Pagas: histórico de pagamentos realizados
-- Vales: adiantamentos (data, profissional, motivo, valor), descontados no próximo pagamento
 - Visão da profissional: cartões com comissões, caixinhas, vales e "você recebe em dd/mm", mais um extrato do período
 
 ### 4.6 Despesas
@@ -101,13 +100,13 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 ### 5.1 Comissão
 - Regra em três níveis; vale sempre a **mais específica**: exceção por serviço → por categoria → padrão da profissional
 - Produtos: comissão de venda própria (padrão 10%)
-- Comissão calculada sobre o **valor cheio do item** (sem descontar desconto nem taxa da maquininha). ⚠️ Confirmar com o dono antes de implementar
+- Comissão calculada sobre o **valor cheio do item** (sem descontar taxa da maquininha). Confirmado pelo dono; o salão não dá desconto (o valor do item pode ser ajustado à mão)
 - Ao fechar a comanda, **gravar o percentual usado em cada item**, para que mudanças futuras de regra não alterem o histórico
-- Valores iniciais (exemplo, confirmar): Valdete 40% padrão e 35% em coloração; Di 50% padrão; Eduardo sem comissão
+- Valores iniciais: em branco — o dono preenche pelo sistema. Eduardo não recebe comissão
 
 ### 5.2 Pagamento de comissões
 - Períodos: dia 1 a 15 (pago no dia 16) e dia 16 ao fim do mês (pago no dia 1)
-- Total = comissões + caixinhas − vales do período
+- Total = comissões + caixinhas do período. O pagamento dá baixa em tudo do período escolhido
 
 ### 5.3 Caixinha
 - Informada no fechamento da comanda, **por profissional**
@@ -158,3 +157,15 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - Use Git e faça um commit ao final de cada etapa
 - Explique em linguagem simples o que foi feito e como testar: o dono não é programador
 - Ao encontrar uma regra não definida neste arquivo, pergunte
+
+## 10. Decisões já tomadas com o dono
+
+- **Projeto**: fica em `C:Projetosespaco-persona` (fora do OneDrive). Supabase do projeto `hxhobtnstgtvvlszujab` (região São Paulo); migrações aplicadas com `npx supabase db push` (sem `--include-seed` desde a importação de dados reais)
+- **Next.js 16** sem Cache Components; "middleware" agora se chama `proxy.ts`
+- **Catálogo**: profissionais **veem os preços** dos serviços e produtos. Pacotes ficam cadastrados, mas **não são usados nas comandas**
+- **Clientes**: dono e profissionais cadastram e editam ficha técnica; anotação: a autora corrige a sua, autora ou dono apagam; aniversário com dia/mês e ano opcional; "cliente desde" opcional
+- **Importação**: 159 serviços e 524 clientes vieram do **Salão Soft** (sem telefones). Planilhas ficam em `/importacao` (fora do Git, LGPD)
+- **Agenda**: salão abre **todos os dias, 08:00–20:00**; profissionais criam/alteram só a própria agenda; status "Cancelou" e "Faltou" ficam no histórico; bloqueios podem repetir (diário/semanal)
+- **Comandas**: profissionais abrem a comanda e lançam itens **em nome próprio, sem ver valores**; só o dono altera valores, recebe, fecha, reabre e cancela. Formas: Pix, crédito, débito, dinheiro e "saldo na casa" (usa crédito ou deixa a cliente devendo). Taxa de crédito única
+- **LGPD**: excluir cliente apaga cadastro, ficha, anotações, saldo e agendamentos; comandas fechadas ficam no financeiro sem o nome
+- **Testes de segurança** em `supabase/tests/*.sql` (rodam e desfazem tudo): `npx supabase db query --linked -f supabase/tests/<arquivo>.sql`
