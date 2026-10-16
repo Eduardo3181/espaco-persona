@@ -5,10 +5,10 @@ import { BotaoEnviar, MensagemErro, useEnvioSemLimpar } from "@/components/formu
 import { Link2, Plus, Search, UserPlus, X } from "lucide-react";
 import { classeBotao, classeInput } from "@/components/ui";
 import { BuscaItem, type OpcaoBusca } from "@/components/busca-item";
-import { formatarDuracao, formatarTelefone } from "@/lib/formato";
+import { formatarDuracao, formatarReais, formatarTelefone } from "@/lib/formato";
 import { buscarClientes, salvarAgendamento } from "./actions";
 
-type Servico = { id: string; nome: string; duracao_min: number; categoria: string };
+type Servico = { id: string; nome: string; duracao_min: number; preco_centavos: number; categoria: string };
 type ClienteResumo = { id: string; nome: string; telefone: string | null };
 
 export type InicialAgendamento = {
@@ -45,7 +45,7 @@ export function FormAgendamento({ profissionais, podeEscolherProf, servicos, ini
   const podeVarias = podeEscolherProf && !editando;
   const porId = useMemo(() => new Map(servicos.map((s) => [s.id, s])), [servicos]);
   const opcoesServico = useMemo<OpcaoBusca[]>(
-    () => servicos.map((s) => ({ id: s.id, nome: s.nome, grupo: s.categoria, detalhe: formatarDuracao(s.duracao_min) })),
+    () => servicos.map((s) => ({ id: s.id, nome: s.nome, grupo: s.categoria, detalhe: `${formatarDuracao(s.duracao_min)} · ${formatarReais(s.preco_centavos)}` })),
     [servicos],
   );
   const soma = (b: Bloco) => b.servicos.reduce((t, id) => t + (porId.get(id)?.duracao_min ?? 0), 0);
@@ -182,7 +182,7 @@ export function FormAgendamento({ profissionais, podeEscolherProf, servicos, ini
                   <ul className="mb-1 flex flex-col gap-1">
                     {b.servicos.map((id, j) => (
                       <li key={`${id}-${j}`} className="flex min-h-11 items-center justify-between gap-2 rounded-lg border border-borda bg-fundo/50 pl-3">
-                        <span>{porId.get(id)?.nome ?? "Serviço"} <span className="text-suave">· {formatarDuracao(porId.get(id)?.duracao_min ?? 0)}</span></span>
+                        <span>{porId.get(id)?.nome ?? "Serviço"} <span className="text-suave">· {formatarDuracao(porId.get(id)?.duracao_min ?? 0)} · {formatarReais(porId.get(id)?.preco_centavos ?? 0)}</span></span>
                         <button type="button" onClick={() => alterar(b.chave, { servicos: b.servicos.filter((_, k) => k !== j) })}
                           className="flex min-h-11 min-w-11 items-center justify-center text-suave hover:text-erro" aria-label={`Remover ${porId.get(id)?.nome}`}>
                           <X size={18} />

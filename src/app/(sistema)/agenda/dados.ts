@@ -16,11 +16,11 @@ export async function profissionaisDaAgenda(supabase: Supabase, eu: Eu) {
 export async function servicosParaAgenda(supabase: Supabase, incluirIds: string[] = []) {
   const { data } = await supabase
     .from("servicos")
-    .select("id, nome, duracao_min, ativo, categorias(nome)")
+    .select("id, nome, duracao_min, preco_centavos, ativo, categorias(nome)")
     .order("nome");
-  type Linha = { id: string; nome: string; duracao_min: number; ativo: boolean; categorias: { nome: string } | null };
+  type Linha = { id: string; nome: string; duracao_min: number; preco_centavos: number; ativo: boolean; categorias: { nome: string } | null };
   return ((data ?? []) as unknown as Linha[])
     .filter((s) => s.ativo || incluirIds.includes(s.id))
-    .map((s) => ({ id: s.id, nome: s.nome, duracao_min: s.duracao_min, categoria: s.categorias?.nome ?? "Outros" }))
+    .map((s) => ({ id: s.id, nome: s.nome, duracao_min: s.duracao_min, preco_centavos: s.preco_centavos, categoria: s.categorias?.nome ?? "Outros" }))
     .sort((a, b) => a.categoria.localeCompare(b.categoria, "pt-BR") || a.nome.localeCompare(b.nome, "pt-BR"));
 }
