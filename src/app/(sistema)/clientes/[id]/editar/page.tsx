@@ -33,7 +33,8 @@ export default async function EditarCliente({ params }: PageProps<"/clientes/[id
           <h2 className="text-lg font-semibold text-erro">Excluir cliente</h2>
           <p className="mt-1 mb-4 text-sm text-suave">
             Use quando a cliente pedir a exclusão dos dados dela (LGPD). Apaga para sempre o cadastro, a ficha técnica,
-            as anotações e o saldo. Não dá para desfazer.
+            as anotações, o saldo e os agendamentos. As comandas já fechadas continuam no financeiro, sem o nome dela.
+            Não dá para desfazer.
           </p>
           <FormAcao acao={excluirCliente} className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <input type="hidden" name="id" value={cliente.id} />

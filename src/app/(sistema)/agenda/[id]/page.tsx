@@ -3,12 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarClock, Lock, MessageCircle, Pencil, Receipt, Trash2, UserRound } from "lucide-react";
 import { BotaoEnviar, FormAcao } from "@/components/formulario";
-import { BotaoLink, Cartao, classeBotao } from "@/components/ui";
+import { BotaoLink, Cartao } from "@/components/ui";
 import { exigirEquipe } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import { formatarDuracao, formatarTelefone, linkWhatsApp } from "@/lib/formato";
 import { STATUS, dataPorExtenso, partesSP, type StatusAgendamento } from "@/lib/agenda";
 import { excluirAgendamento, excluirBloqueio, mudarStatus } from "../actions";
+import { abrirComanda } from "../../comandas/actions";
 
 export const metadata: Metadata = { title: "Agendamento" };
 
@@ -27,7 +28,7 @@ type Detalhe = {
 };
 
 export default async function DetalheAgendamento({ params }: PageProps<"/agenda/[id]">) {
-  await exigirEquipe();
+  const { profissional: eu } = await exigirEquipe();
   const { id } = await params;
   const supabase = await criarClienteServidor();
   const { data } = await supabase
@@ -37,6 +38,13 @@ export default async function DetalheAgendamento({ params }: PageProps<"/agenda/
     .maybeSingle();
   if (!data) notFound();
   const a = data as unknown as Detalhe;
+
+  // Comanda fechada deste agendamento (só o dono enxerga comandas)
+  let comandaFechadaId: string | null = null;
+  if (a.status === "concluido" && eu.papel === "dono") {
+    const { data: cf } = await supabase.from("comandas").select("id").eq("agendamento_id", a.id).eq("status", "fechada").maybeSingle();
+    comandaFechadaId = cf?.id ?? null;
+  }
 
   const ini = partesSP(a.inicio);
   const fim = partesSP(a.fim);
@@ -128,23 +136,31 @@ export default async function DetalheAgendamento({ params }: PageProps<"/agenda/
           {desmarcado && <BotaoStatus id={a.id} status="aguardando" rotulo="Reativar agendamento" variante="primario" />}
         </div>
 
-        {editavel && (
-          <div className="flex flex-wrap gap-2">
-            {!desmarcado && (
-              <BotaoLink href={`/agenda/${a.id}/editar`} variante="secundario">
-                <Pencil size={16} aria-hidden /> Editar / remarcar
-              </BotaoLink>
-            )}
-            <span className={classeBotao("secundario", "cursor-not-allowed opacity-50")} title="Disponível na fase 4" aria-disabled>
-              <Receipt size={16} aria-hidden /> Abrir comanda (em breve)
-            </span>
-            {a.clientes && (
+        <div className="flex flex-wrap gap-2">
+          {!desmarcado && a.status !== "concluido" && (
+            <FormAcao acao={abrirComanda}>
+              <input type="hidden" name="agendamento_id" value={a.id} />
+              <BotaoEnviar variante={a.status === "em_atendimento" ? "primario" : "secundario"} pendente="Abrindo…">
+                <Receipt size={16} aria-hidden /> {a.status === "em_atendimento" ? "Ver comanda" : "Abrir comanda"}
+              </BotaoEnviar>
+            </FormAcao>
+          )}
+          {a.status === "concluido" && comandaFechadaId && (
+            <BotaoLink href={`/comandas/${comandaFechadaId}`} variante="secundario">
+              <Receipt size={16} aria-hidden /> Ver comanda fechada
+            </BotaoLink>
+          )}
+          {editavel && !desmarcado && (
+            <BotaoLink href={`/agenda/${a.id}/editar`} variante="secundario">
+              <Pencil size={16} aria-hidden /> Editar / remarcar
+            </BotaoLink>
+          )}
+          {a.clientes && (
               <BotaoLink href={`/clientes/${a.clientes.id}`} variante="fantasma">
                 <UserRound size={16} aria-hidden /> Ficha da cliente
               </BotaoLink>
             )}
-          </div>
-        )}
+        </div>
 
         {editavel && !desmarcado && (
           <div className="flex flex-wrap gap-2 border-t border-borda pt-4">

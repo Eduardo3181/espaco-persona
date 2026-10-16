@@ -14,7 +14,7 @@ type ItemMenu = { href: string; rotulo: string; icone: typeof House; soDono?: bo
 const ITENS: ItemMenu[] = [
   { href: "/", rotulo: "Início", icone: House },
   { href: "/agenda", rotulo: "Agenda", icone: CalendarDays },
-  { href: "/comandas", rotulo: "Comandas", icone: Receipt, soDono: true },
+  { href: "/comandas", rotulo: "Comandas", icone: Receipt },
   { href: "/clientes", rotulo: "Clientes", icone: UserRound },
   { href: "/servicos", rotulo: "Serviços e produtos", icone: Scissors },
   { href: "/comissoes", rotulo: "Comissões", icone: HandCoins },

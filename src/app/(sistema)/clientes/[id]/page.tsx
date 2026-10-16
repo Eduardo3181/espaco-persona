@@ -8,6 +8,7 @@ import { exigirEquipe } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import {
   formatarAniversario, formatarDataHora, formatarDiaISO, formatarReais, formatarTelefone, linkWhatsApp,
+  MESES,
 } from "@/lib/formato";
 import { STATUS, dataPorExtenso, partesSP, type StatusAgendamento } from "@/lib/agenda";
 import { apagarAnotacao, apagarMovimento, criarAnotacao, editarAnotacao, lancarSaldo, salvarFicha } from "../actions";
@@ -20,6 +21,13 @@ type AgendamentoCliente = {
   profissionais: { nome: string } | null;
   agendamento_servicos: { ordem: number; servicos: { nome: string } | null }[];
 };
+type Visita = {
+  comanda_id: string; numero: number; data: string; status: string; total_centavos: number | null;
+  itens: { descricao: string; quantidade: number; profissional_id: string; profissional_nome: string; valor_centavos: number | null }[];
+  pagamentos: { forma: string; valor_centavos: number }[] | null;
+  anotacoes: { texto: string; autor: string | null }[];
+};
+const NOME_FORMA: Record<string, string> = { pix: "Pix", credito: "Crédito", debito: "Débito", dinheiro: "Dinheiro", saldo: "Saldo" };
 type Movimento = { id: string; valor_centavos: number; descricao: string; criado_em: string };
 
 const classeTexto = `${classeInput} min-h-24 py-2`;
@@ -52,6 +60,19 @@ export default async function FichaCliente({ params, searchParams }: PageProps<"
     .limit(50);
   const agendamentos = (agsData ?? []) as unknown as AgendamentoCliente[];
   const agora = new Date().toISOString();
+
+  // Resumo e histórico (valores só chegam para o dono — funções do banco)
+  const [{ data: resumoData }, { data: histData }] = await Promise.all([
+    supabase.rpc("resumo_cliente", { p_cliente_id: id }),
+    supabase.rpc("historico_cliente", { p_cliente_id: id }),
+  ]);
+  const resumo = (resumoData ?? {}) as { ultima_visita?: string | null; visitas?: number; frequencia_dias?: number | null; servico_mais_feito?: string | null; total_gasto_centavos?: number | null };
+  const filtroProf = typeof sp.prof === "string" ? sp.prof : "";
+  const historico = ((histData ?? []) as Visita[]).filter((v) => !filtroProf || v.itens.some((i) => i.profissional_id === filtroProf));
+  const profsNoHistorico = [...new Map(((histData ?? []) as Visita[]).flatMap((v) => v.itens.map((i) => [i.profissional_id, i.profissional_nome] as const))).entries()];
+  const porMes = new Map<string, Visita[]>();
+  historico.forEach((v) => { const m = partesSP(v.data).data.slice(0, 7); porMes.set(m, [...(porMes.get(m) ?? []), v]); });
+  const frequencia = resumo.frequencia_dias ? (resumo.frequencia_dias >= 14 ? `a cada ${Math.round(resumo.frequencia_dias / 7)} semanas` : `a cada ${resumo.frequencia_dias} dias`) : "—";
   const proximos = agendamentos.filter((a) => a.inicio >= agora && (a.status === "aguardando" || a.status === "confirmado")).reverse();
   const desmarques = agendamentos.filter((a) => a.status === "cancelado" || a.status === "faltou");
   const faltas = desmarques.filter((a) => a.status === "faltou").length;
@@ -99,11 +120,11 @@ export default async function FichaCliente({ params, searchParams }: PageProps<"
 
       {/* Resumo */}
       <section aria-label="Resumo" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Indicador rotulo="Última visita" valor="—" />
-        <Indicador rotulo="Visitas" valor="0" />
-        <Indicador rotulo="Frequência média" valor="—" />
-        <Indicador rotulo="Serviço mais feito" valor="—" />
-        {ehDono && <Indicador rotulo="Total gasto" valor={formatarReais(0)} />}
+        <Indicador rotulo="Última visita" valor={resumo.ultima_visita ? formatarDiaISO(resumo.ultima_visita) : "—"} />
+        <Indicador rotulo="Visitas" valor={String(resumo.visitas ?? 0)} />
+        <Indicador rotulo="Frequência média" valor={frequencia} />
+        <Indicador rotulo="Serviço mais feito" valor={resumo.servico_mais_feito ?? "—"} />
+        {ehDono && <Indicador rotulo="Total gasto" valor={formatarReais(resumo.total_gasto_centavos ?? 0)} />}
         {ehDono && (
           <Indicador
             rotulo="Saldo na casa"
@@ -112,7 +133,6 @@ export default async function FichaCliente({ params, searchParams }: PageProps<"
           />
         )}
       </section>
-      <p className="-mt-3 text-xs text-suave">Visitas, frequência e total gasto passam a ser calculados quando as comandas entrarem no sistema (fase 4).</p>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Ficha técnica */}
@@ -288,8 +308,59 @@ export default async function FichaCliente({ params, searchParams }: PageProps<"
 
       {/* Histórico */}
       <Cartao>
-        <h2 className="mb-3 text-lg font-semibold">Histórico de atendimentos</h2>
-        <Vazio>O histórico aparece aqui quando as comandas forem fechadas no sistema (fase 4).</Vazio>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">Histórico de atendimentos</h2>
+          {profsNoHistorico.length > 1 && (
+            <nav className="flex flex-wrap gap-1 text-sm" aria-label="Filtrar por profissional">
+              <Link href={`/clientes/${id}`} className={`rounded-full px-3 py-1 ${!filtroProf ? "bg-escuro text-sobre-escuro" : "border border-borda"}`}>Todas</Link>
+              {profsNoHistorico.map(([pid, nome]) => (
+                <Link key={pid} href={`/clientes/${id}?prof=${pid}`} className={`rounded-full px-3 py-1 ${filtroProf === pid ? "bg-escuro text-sobre-escuro" : "border border-borda"}`}>{nome.split(" ")[0]}</Link>
+              ))}
+            </nav>
+          )}
+        </div>
+        {historico.length === 0 ? (
+          <Vazio>Nenhum atendimento registrado ainda.</Vazio>
+        ) : (
+          [...porMes.entries()].map(([mes, visitas]) => (
+            <section key={mes} className="mb-4">
+              <h3 className="mb-2 border-b border-borda pb-1 text-sm font-semibold text-rose first-letter:uppercase">
+                {MESES[Number(mes.slice(5)) - 1]} de {mes.slice(0, 4)}
+              </h3>
+              <ul className="flex flex-col gap-3">
+                {visitas.map((v) => {
+                  const p = partesSP(v.data);
+                  return (
+                    <li key={v.comanda_id} className="rounded-lg border border-borda p-3 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-semibold first-letter:uppercase">{dataPorExtenso(p.data)}</p>
+                        <div className="flex items-center gap-2">
+                          {v.status === "aberta" && <span className="rounded-full bg-atendimento-fundo px-2 py-0.5 text-xs font-semibold text-atendimento">Comanda aberta</span>}
+                          {ehDono && v.total_centavos !== null && <span className="font-semibold">{formatarReais(v.total_centavos)}</span>}
+                          {ehDono && <Link href={`/comandas/${v.comanda_id}`} className="text-xs font-semibold text-rose">#{v.numero}</Link>}
+                        </div>
+                      </div>
+                      <ul className="mt-1">
+                        {v.itens.map((i, k) => (
+                          <li key={k} className="flex justify-between gap-2">
+                            <span>{i.quantidade > 1 && `${i.quantidade}× `}{i.descricao} <span className="text-suave">· {i.profissional_nome.split(" ")[0]}</span></span>
+                            {ehDono && i.valor_centavos !== null && <span className="text-suave">{formatarReais(i.valor_centavos)}</span>}
+                          </li>
+                        ))}
+                      </ul>
+                      {ehDono && v.pagamentos && (
+                        <p className="mt-1 text-xs text-suave">Pago: {v.pagamentos.map((g) => `${NOME_FORMA[g.forma] ?? g.forma} ${formatarReais(g.valor_centavos)}`).join(" + ")}</p>
+                      )}
+                      {v.anotacoes.map((a, k) => (
+                        <p key={k} className="mt-2 rounded bg-fundo px-2 py-1 text-xs"><strong>{a.autor}:</strong> {a.texto}</p>
+                      ))}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))
+        )}
       </Cartao>
     </div>
   );
