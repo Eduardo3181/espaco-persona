@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Cake, CalendarHeart, MessageCircle, Pencil, Phone, Trash2 } from "lucide-react";
+import { ArrowLeft, Cake, CalendarHeart, CalendarPlus, MessageCircle, Pencil, Phone, Trash2 } from "lucide-react";
 import { BotaoEnviar, FormAcao } from "@/components/formulario";
 import { BotaoLink, Campo, Cartao, Vazio, classeInput } from "@/components/ui";
 import { exigirEquipe } from "@/lib/sessao";
@@ -9,11 +9,17 @@ import { criarClienteServidor } from "@/lib/supabase/server";
 import {
   formatarAniversario, formatarDataHora, formatarDiaISO, formatarReais, formatarTelefone, linkWhatsApp,
 } from "@/lib/formato";
+import { STATUS, dataPorExtenso, partesSP, type StatusAgendamento } from "@/lib/agenda";
 import { apagarAnotacao, apagarMovimento, criarAnotacao, editarAnotacao, lancarSaldo, salvarFicha } from "../actions";
 
 export const metadata: Metadata = { title: "Ficha da cliente" };
 
 type Anotacao = { id: string; autor_id: string | null; texto: string; criado_em: string; editado_em: string | null };
+type AgendamentoCliente = {
+  id: string; inicio: string; status: StatusAgendamento;
+  profissionais: { nome: string } | null;
+  agendamento_servicos: { ordem: number; servicos: { nome: string } | null }[];
+};
 type Movimento = { id: string; valor_centavos: number; descricao: string; criado_em: string };
 
 const classeTexto = `${classeInput} min-h-24 py-2`;
@@ -36,6 +42,19 @@ export default async function FichaCliente({ params, searchParams }: PageProps<"
       : Promise.resolve({ data: [] as Movimento[] }),
   ]);
   if (!cliente) notFound();
+
+  // Agendamentos (a profissional só enxerga os dela — RLS)
+  const { data: agsData } = await supabase
+    .from("agendamentos")
+    .select("id, inicio, status, profissionais!agendamentos_profissional_id_fkey(nome), agendamento_servicos(ordem, servicos(nome))")
+    .eq("cliente_id", id)
+    .order("inicio", { ascending: false })
+    .limit(50);
+  const agendamentos = (agsData ?? []) as unknown as AgendamentoCliente[];
+  const agora = new Date().toISOString();
+  const proximos = agendamentos.filter((a) => a.inicio >= agora && (a.status === "aguardando" || a.status === "confirmado")).reverse();
+  const desmarques = agendamentos.filter((a) => a.status === "cancelado" || a.status === "faltou");
+  const faltas = desmarques.filter((a) => a.status === "faltou").length;
 
   const anotacoes = (anotacoesData ?? []) as Anotacao[];
   const movimentos = (saldoRes.data ?? []) as Movimento[];
@@ -62,7 +81,10 @@ export default async function FichaCliente({ params, searchParams }: PageProps<"
             {cliente.cliente_desde && <li className="flex items-center gap-2"><CalendarHeart size={15} aria-hidden /> Cliente desde {formatarDiaISO(cliente.cliente_desde)}</li>}
           </ul>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <BotaoLink href={`/agenda/novo?cliente=${cliente.id}`}>
+            <CalendarPlus size={16} aria-hidden /> Agendar
+          </BotaoLink>
           {cliente.telefone && (
             <a href={linkWhatsApp(cliente.telefone)} target="_blank" rel="noopener noreferrer"
               className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-sucesso px-4 text-sm font-semibold text-white hover:opacity-90">
@@ -233,6 +255,36 @@ export default async function FichaCliente({ params, searchParams }: PageProps<"
           )}
         </Cartao>
       )}
+
+      {/* Agendamentos */}
+      <Cartao>
+        <h2 className="mb-3 text-lg font-semibold">Próximos agendamentos</h2>
+        {proximos.length === 0 ? (
+          <p className="text-sm text-suave">Nenhum horário marcado.</p>
+        ) : (
+          <ul className="divide-y divide-borda text-sm">
+            {proximos.map((a) => {
+              const p = partesSP(a.inicio);
+              return (
+                <li key={a.id}>
+                  <Link href={`/agenda/${a.id}`} className="flex flex-wrap items-center justify-between gap-2 py-2 hover:text-rose">
+                    <span>
+                      <strong className="first-letter:uppercase">{dataPorExtenso(p.data, true)}</strong> às {p.hora} · {a.profissionais?.nome.split(" ")[0]}
+                      <span className="block text-xs text-suave">{[...a.agendamento_servicos].sort((x, y) => x.ordem - y.ordem).map((s) => s.servicos?.nome).join(", ")}</span>
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS[a.status].fundo} ${STATUS[a.status].texto}`}>{STATUS[a.status].rotulo}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {desmarques.length > 0 && (
+          <p className="mt-3 border-t border-borda pt-3 text-sm text-suave">
+            Desmarcou {desmarques.length - faltas} vez(es) e faltou sem avisar {faltas} vez(es).
+          </p>
+        )}
+      </Cartao>
 
       {/* Histórico */}
       <Cartao>
