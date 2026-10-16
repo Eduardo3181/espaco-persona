@@ -7,7 +7,7 @@ import { classeInput } from "@/components/ui";
 import { BuscaItem } from "@/components/busca-item";
 import { lancarItem } from "../actions";
 
-type Opcao = { id: string; nome: string; grupo: string };
+type Opcao = { id: string; nome: string; grupo: string; detalhe?: string };
 
 /** Formulário para lançar serviço ou produto na comanda. */
 export function AdicionarItem({ comandaId, servicos, produtos, profissionais, podeEscolherProf, profPadrao }: {
@@ -41,7 +41,7 @@ export function AdicionarItem({ comandaId, servicos, produtos, profissionais, po
           {escolhido ? (
             <span className="flex min-h-11 items-center justify-between gap-2 rounded-lg border border-rose-claro bg-agendado-fundo/50 pl-3">
               <input type="hidden" name="item" value={`${tipo}:${escolhido.id}`} />
-              <strong className="truncate">{escolhido.nome}</strong>
+              <span className="min-w-0 truncate"><strong>{escolhido.nome}</strong>{escolhido.detalhe && <span className="text-suave"> · {escolhido.detalhe}</span>}</span>
               <button type="button" onClick={() => setEscolhido(null)} aria-label="Trocar item"
                 className="flex min-h-11 min-w-11 items-center justify-center text-suave hover:text-erro"><X size={18} /></button>
             </span>

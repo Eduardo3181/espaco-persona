@@ -37,16 +37,16 @@ export default async function PaginaComanda({ params, searchParams }: PageProps<
 
 async function catalogo(supabase: Supabase) {
   const [{ data: servs }, { data: prods }, { data: profs }] = await Promise.all([
-    supabase.from("servicos").select("id, nome, ativo, categoria_id, categorias(nome)").eq("ativo", true).order("nome"),
-    supabase.from("produtos").select("id, nome, ativo, categorias(nome)").eq("ativo", true).order("nome"),
+    supabase.from("servicos").select("id, nome, ativo, preco_centavos, categoria_id, categorias(nome)").eq("ativo", true).order("nome"),
+    supabase.from("produtos").select("id, nome, ativo, preco_centavos, categorias(nome)").eq("ativo", true).order("nome"),
     supabase.from("profissionais").select("id, nome, recebe_comissao").eq("ativo", true).order("ordem").order("nome"),
   ]);
-  type S = { id: string; nome: string; categoria_id: string; categorias: { nome: string } | null };
+  type S = { id: string; nome: string; preco_centavos: number; categoria_id: string; categorias: { nome: string } | null };
   const ordenar = (a: { grupo: string; nome: string }, b: { grupo: string; nome: string }) =>
     a.grupo.localeCompare(b.grupo, "pt-BR") || a.nome.localeCompare(b.nome, "pt-BR");
   return {
-    servicos: ((servs ?? []) as unknown as S[]).map((s) => ({ id: s.id, nome: s.nome, grupo: s.categorias?.nome ?? "Outros", categoria_id: s.categoria_id })).sort(ordenar),
-    produtos: ((prods ?? []) as unknown as S[]).map((s) => ({ id: s.id, nome: s.nome, grupo: s.categorias?.nome ?? "Outros" })).sort(ordenar),
+    servicos: ((servs ?? []) as unknown as S[]).map((s) => ({ id: s.id, nome: s.nome, grupo: s.categorias?.nome ?? "Outros", detalhe: formatarReais(s.preco_centavos), categoria_id: s.categoria_id })).sort(ordenar),
+    produtos: ((prods ?? []) as unknown as S[]).map((s) => ({ id: s.id, nome: s.nome, grupo: s.categorias?.nome ?? "Outros", detalhe: formatarReais(s.preco_centavos) })).sort(ordenar),
     profissionais: profs ?? [],
   };
 }
