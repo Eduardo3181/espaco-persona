@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import {
-  CalendarDays, ChartColumn, House, Menu, Receipt, Scissors, Settings, UserRound, Users, Wallet, X, LogOut, HandCoins,
+  CalendarDays, ChartColumn, House, Menu, Receipt, Scissors, Settings, UserRound, Users, X, LogOut, HandCoins,
 } from "lucide-react";
 import type { Papel } from "@/lib/sessao";
 
@@ -18,7 +18,6 @@ const ITENS: ItemMenu[] = [
   { href: "/clientes", rotulo: "Clientes", icone: UserRound },
   { href: "/servicos", rotulo: "Serviços e produtos", icone: Scissors },
   { href: "/comissoes", rotulo: "Comissões", icone: HandCoins },
-  { href: "/despesas", rotulo: "Despesas", icone: Wallet, soDono: true },
   { href: "/relatorios", rotulo: "Relatórios", icone: ChartColumn, soDono: true },
   { href: "/equipe", rotulo: "Equipe", icone: Users, soDono: true },
   { href: "/configuracoes", rotulo: "Configurações", icone: Settings, soDono: true },

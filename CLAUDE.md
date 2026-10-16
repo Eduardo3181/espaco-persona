@@ -78,13 +78,12 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - Visão da profissional: cartões com comissões, caixinhas, vales e "você recebe em dd/mm", mais um extrato do período
 
 ### 4.6 Despesas
-- Lançamentos com descrição, categoria, vencimento, valor e situação (paga/em aberto); totais do mês
+- **Não haverá módulo de despesas** (decisão do dono em 16/10/2026): o sistema não calcula despesas do salão
 
 ### 4.7 Relatórios (só dono)
 - Período: dia, semana, mês ou personalizado
-- **Visão geral**: vendas, despesas, comissões + taxas e resultado do mês; "para onde vai o dinheiro"
+- **Visão geral**: vendas, comissões, taxas e resultado (vendas − comissões − taxas, antes das despesas, que ficam fora do sistema); "para onde vai o dinheiro"
 - **Vendas**: faturamento por dia (gráfico de barras), por item (serviços/produtos/pacotes), por forma de pagamento e por profissional
-- **Despesas**: por categoria
 - Caixinhas **não** entram no faturamento
 
 ### 4.8 Configurações (só dono)
@@ -117,7 +116,7 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 ### 5.4 Financeiro
 - Faturamento = itens das comandas fechadas (sem caixinhas)
 - Taxa da maquininha calculada por forma de pagamento e registrada na comanda
-- Resultado = faturamento − despesas − comissões − taxas
+- Resultado = faturamento − comissões − taxas (despesas não são controladas no sistema)
 
 ## 6. Identidade visual
 
@@ -145,7 +144,7 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 3. **Agenda**: colunas por profissional, agendamentos com vários serviços, bloqueios e status
 4. **Comandas**: itens, ficha da cliente, caixinha, pagamento dividido, fechamento com comissões e repasses, estoque e histórico da cliente
 5. **Comissões e vales**: a pagar, pagas e vales; visão da profissional
-6. **Despesas e relatórios**
+6. **Relatórios** (sem despesas)
 7. **Configurações e PWA**: taxas, mensagens de WhatsApp, instalação no celular
 8. **Publicação**: Vercel + Supabase de produção, com um roteiro de testes
 
@@ -167,5 +166,6 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - **Importação**: 159 serviços e 524 clientes vieram do **Salão Soft** (sem telefones). Planilhas ficam em `/importacao` (fora do Git, LGPD)
 - **Agenda**: salão abre **todos os dias, 08:00–20:00**; profissionais criam/alteram só a própria agenda; status "Cancelou" e "Faltou" ficam no histórico; bloqueios podem repetir (diário/semanal)
 - **Comandas**: profissionais abrem a comanda e lançam itens **em nome próprio, sem ver valores**; só o dono altera valores, recebe, fecha, reabre e cancela. Formas: Pix, crédito, débito, dinheiro e "saldo na casa" (usa crédito ou deixa a cliente devendo). Taxa de crédito única
+- **Despesas**: não são controladas no sistema; relatórios mostram vendas, comissões, taxas e o que sobra para o salão
 - **LGPD**: excluir cliente apaga cadastro, ficha, anotações, saldo e agendamentos; comandas fechadas ficam no financeiro sem o nome
 - **Testes de segurança** em `supabase/tests/*.sql` (rodam e desfazem tudo): `npx supabase db query --linked -f supabase/tests/<arquivo>.sql`
