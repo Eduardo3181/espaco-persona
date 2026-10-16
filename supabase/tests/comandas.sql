@@ -25,6 +25,8 @@ begin
   insert into public.movimentos_saldo (cliente_id, valor_centavos, descricao) values (v_cliente, 5000, 'crédito teste');
   insert into public.produtos (nome, categoria_id, preco_centavos, estoque, comissao_percentual)
   values ('ZZ Produto', v_cat_prod, 5000, 5, 10) returning id into v_prod;
+  -- Regras reais da profissional ficam de lado durante o teste (tudo é desfeito no final)
+  delete from public.regras_comissao where profissional_id in (v_prof, v_outra);
   insert into public.regras_comissao (profissional_id, tipo, percentual) values (v_prof, 'padrao', 40);
   insert into public.regras_comissao (profissional_id, tipo, categoria_id, percentual) values (v_prof, 'categoria', v_cat_color, 35);
   insert into public.regras_comissao (profissional_id, tipo, servico_id, percentual) values (v_prof, 'servico', v_escova, 45);

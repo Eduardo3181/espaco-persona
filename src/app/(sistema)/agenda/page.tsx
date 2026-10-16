@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Lock, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Link2, Lock, Plus } from "lucide-react";
 import { BotaoLink } from "@/components/ui";
 import { exigirEquipe } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
@@ -24,6 +24,7 @@ type Agendamento = {
   fim: string;
   status: StatusAgendamento;
   motivo: string | null;
+  grupo_atendimento: string | null;
   clientes: { nome: string } | null;
   agendamento_servicos: { ordem: number; servicos: { nome: string } | null }[];
 };
@@ -43,7 +44,7 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
       : supabase.from("profissionais").select("id, nome, cor").eq("id", eu.id),
     supabase
       .from("agendamentos")
-      .select("id, tipo, profissional_id, inicio, fim, status, motivo, clientes(nome), agendamento_servicos(ordem, servicos(nome))")
+      .select("id, tipo, profissional_id, inicio, fim, status, motivo, grupo_atendimento, clientes(nome), agendamento_servicos(ordem, servicos(nome))")
       .gte("inicio", paraTimestamp(data, "00:00"))
       .lt("inicio", paraTimestamp(somarDias(data, 1), "00:00"))
       .order("inicio"),
@@ -172,6 +173,7 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
                           <span className="font-semibold"><Lock size={11} className="inline" aria-hidden /> {a.motivo || "Bloqueado"}</span>
                         ) : (
                           <>
+                            {a.grupo_atendimento && <Link2 size={11} className="mr-0.5 inline text-atendimento" aria-label="Atendimento com outra profissional" />}
                             <span className={`font-semibold ${st.texto}`}>{a.clientes?.nome}</span>
                             <span className="block truncate text-texto/80">{nomesServicos(a)}</span>
                           </>

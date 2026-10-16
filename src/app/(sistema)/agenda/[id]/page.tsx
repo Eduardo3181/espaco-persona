@@ -23,6 +23,7 @@ type Detalhe = {
   motivo: string | null;
   observacao: string | null;
   grupo_repeticao: string | null;
+  grupo_atendimento: string | null;
   profissionais: { id: string; nome: string; cor: string } | null;
   clientes: { id: string; nome: string; telefone: string | null } | null;
   agendamento_servicos: { ordem: number; duracao_min: number; servicos: { nome: string } | null }[];
@@ -34,11 +35,23 @@ export default async function DetalheAgendamento({ params }: PageProps<"/agenda/
   const supabase = await criarClienteServidor();
   const { data } = await supabase
     .from("agendamentos")
-    .select("id, tipo, inicio, fim, status, motivo, observacao, grupo_repeticao, profissionais!agendamentos_profissional_id_fkey(id, nome, cor), clientes(id, nome, telefone), agendamento_servicos(ordem, duracao_min, servicos(nome))")
+    .select("id, tipo, inicio, fim, status, motivo, observacao, grupo_repeticao, grupo_atendimento, profissionais!agendamentos_profissional_id_fkey(id, nome, cor), clientes(id, nome, telefone), agendamento_servicos(ordem, duracao_min, servicos(nome))")
     .eq("id", id)
     .maybeSingle();
   if (!data) notFound();
   const a = data as unknown as Detalhe;
+
+  // Outros horários do mesmo atendimento (a profissional só enxerga os dela)
+  let ligados: { id: string; inicio: string; status: StatusAgendamento; profissionais: { nome: string } | null }[] = [];
+  if (a.grupo_atendimento) {
+    const { data: lig } = await supabase
+      .from("agendamentos")
+      .select("id, inicio, status, profissionais!agendamentos_profissional_id_fkey(nome)")
+      .eq("grupo_atendimento", a.grupo_atendimento)
+      .neq("id", a.id)
+      .order("inicio");
+    ligados = (lig ?? []) as unknown as typeof ligados;
+  }
 
   // Comanda fechada deste agendamento (só o dono enxerga comandas)
   let comandaFechadaId: string | null = null;
@@ -125,6 +138,26 @@ export default async function DetalheAgendamento({ params }: PageProps<"/agenda/
             <ul>{servicos.map((s) => <li key={s.ordem}>{s.servicos?.nome} <span className="text-suave">· {formatarDuracao(s.duracao_min)}</span></li>)}</ul>
           </dd>
           {a.observacao && <><dt className="text-suave">Observação</dt><dd>{a.observacao}</dd></>}
+          {a.grupo_atendimento && (
+            <>
+              <dt className="text-suave">Junto com</dt>
+              <dd>
+                {ligados.length === 0 ? "outra profissional (mesmo atendimento, comanda única)" : (
+                  <ul>
+                    {ligados.map((l) => (
+                      <li key={l.id}>
+                        <Link href={`/agenda/${l.id}`} className="text-rose hover:underline">
+                          {l.profissionais?.nome} às {partesSP(l.inicio).hora}
+                        </Link>{" "}
+                        <span className="text-xs text-suave">· {STATUS[l.status].rotulo}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <span className="block text-xs text-suave">Mesmo atendimento: a comanda é uma só.</span>
+              </dd>
+            </>
+          )}
         </dl>
 
         <div className="flex flex-wrap gap-2 border-t border-borda pt-4">

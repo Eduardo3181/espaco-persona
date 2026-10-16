@@ -51,38 +51,58 @@ export async function buscarClientes(termo: string) {
 export async function salvarAgendamento(_e: EstadoForm, dados: FormData): Promise<EstadoForm> {
   const { profissional: eu } = await exigirEquipe();
   const id = texto(dados, "id") || null;
-  const profissionalId = eu.papel === "dono" ? texto(dados, "profissional_id") : eu.id;
   let clienteId = texto(dados, "cliente_id");
   const novoNome = texto(dados, "novo_cliente_nome");
   const novoTelefone = normalizarTelefone(texto(dados, "novo_cliente_telefone"));
   const data = texto(dados, "data");
-  const hora = texto(dados, "hora");
-  const duracao = Number(texto(dados, "duracao"));
-  const servicos = dados.getAll("servico").map(String).filter(Boolean);
   const observacao = texto(dados, "observacao");
 
-  if (!profissionalId) return { erro: "Escolha a profissional." };
+  type BlocoForm = { profissional_id: string; hora: string; servicos: string[]; duracao: number };
+  let blocosBrutos: BlocoForm[];
+  try { blocosBrutos = JSON.parse(texto(dados, "blocos") || "[]"); } catch { return { erro: "Dados do agendamento inválidos." }; }
+  // A profissional só agenda na própria coluna; editar mexe em um horário só
+  const blocos = (id ? blocosBrutos.slice(0, 1) : blocosBrutos).map((b) => ({
+    ...b, profissional_id: eu.papel === "dono" ? b.profissional_id : eu.id,
+  }));
+
   if (!clienteId && !novoNome) return { erro: "Escolha a cliente (ou cadastre uma nova)." };
   if (!dataValida(data)) return { erro: "Data inválida." };
-  if (!horaValida(hora)) return { erro: "Hora inválida." };
-  if (!servicos.length) return { erro: "Escolha pelo menos um serviço." };
-  if (!Number.isInteger(duracao) || duracao <= 0 || duracao > 720) return { erro: "Duração inválida (em minutos)." };
+  if (!blocos.length) return { erro: "Inclua pelo menos uma profissional." };
   if (novoTelefone && (novoTelefone.length < 10 || novoTelefone.length > 11)) return { erro: "Telefone da nova cliente inválido." };
 
-  const supabase = await criarClienteServidor();
-  const inicio = paraTimestamp(data, hora);
-  const fim = new Date(new Date(inicio).getTime() + duracao * 60000).toISOString();
+  const nomeProf = blocos.length > 1 ? (i: number) => ` (profissional ${i + 1})` : () => "";
+  const periodos: { profissional_id: string; inicio: string; fim: string; duracao: number; servicos: string[] }[] = [];
+  for (const [i, b] of blocos.entries()) {
+    if (!b.profissional_id) return { erro: `Escolha a profissional${nomeProf(i)}.` };
+    if (!horaValida(b.hora)) return { erro: `Hora inválida${nomeProf(i)}.` };
+    if (!Array.isArray(b.servicos) || !b.servicos.length) return { erro: `Escolha pelo menos um serviço${nomeProf(i)}.` };
+    if (!Number.isInteger(b.duracao) || b.duracao <= 0 || b.duracao > 720) return { erro: `Duração inválida${nomeProf(i)}.` };
+    const inicio = paraTimestamp(data, b.hora);
+    const fim = new Date(new Date(inicio).getTime() + b.duracao * 60000).toISOString();
+    periodos.push({ profissional_id: b.profissional_id, inicio, fim, duracao: b.duracao, servicos: b.servicos });
+  }
+  // Mesma profissional duas vezes no mesmo horário
+  for (let i = 0; i < periodos.length; i++) for (let j = i + 1; j < periodos.length; j++) {
+    const a = periodos[i], b = periodos[j];
+    if (a.profissional_id === b.profissional_id && new Date(a.inicio) < new Date(b.fim) && new Date(b.inicio) < new Date(a.fim)) {
+      return { erro: "A mesma profissional aparece duas vezes em horários que se sobrepõem." };
+    }
+  }
 
-  // Confere o horário antes de criar uma cliente nova
-  const { count } = await supabase
-    .from("agendamentos")
-    .select("id", { count: "exact", head: true })
-    .eq("profissional_id", profissionalId)
-    .not("status", "in", "(cancelado,faltou)")
-    .lt("inicio", fim)
-    .gt("fim", inicio)
-    .neq("id", id ?? "00000000-0000-0000-0000-000000000000");
-  if (count) return { erro: await descreverConflito(supabase, profissionalId, inicio, fim, id ?? undefined) };
+  const supabase = await criarClienteServidor();
+
+  // Confere os horários antes de criar uma cliente nova
+  for (const p of periodos) {
+    const { count } = await supabase
+      .from("agendamentos")
+      .select("id", { count: "exact", head: true })
+      .eq("profissional_id", p.profissional_id)
+      .not("status", "in", "(cancelado,faltou)")
+      .lt("inicio", p.fim)
+      .gt("fim", p.inicio)
+      .neq("id", id ?? "00000000-0000-0000-0000-000000000000");
+    if (count) return { erro: await descreverConflito(supabase, p.profissional_id, p.inicio, p.fim, id ?? undefined) };
+  }
 
   if (!clienteId) {
     const { data: nova, error } = await supabase
@@ -94,23 +114,24 @@ export async function salvarAgendamento(_e: EstadoForm, dados: FormData): Promis
     clienteId = nova.id;
   }
 
-  const { error } = await supabase.rpc("salvar_agendamento", {
-    p_id: id,
-    p_profissional_id: profissionalId,
-    p_cliente_id: clienteId,
-    p_inicio: inicio,
-    p_duracao_min: duracao,
-    p_servicos: servicos,
-    p_observacao: observacao,
-  });
+  const { error } = id
+    ? await supabase.rpc("salvar_agendamento", {
+        p_id: id, p_profissional_id: periodos[0].profissional_id, p_cliente_id: clienteId,
+        p_inicio: periodos[0].inicio, p_duracao_min: periodos[0].duracao, p_servicos: periodos[0].servicos, p_observacao: observacao,
+      })
+    : await supabase.rpc("criar_atendimento", {
+        p_cliente_id: clienteId,
+        p_observacao: observacao,
+        p_blocos: periodos.map((p) => ({ profissional_id: p.profissional_id, inicio: p.inicio, duracao_min: p.duracao, servicos: p.servicos })),
+      });
   if (error) {
-    if (error.code === "23P01") return { erro: await descreverConflito(supabase, profissionalId, inicio, fim, id ?? undefined) };
+    if (error.code === "23P01") return { erro: "Um dos horários acabou de ser ocupado. Confira a agenda e tente de novo." };
     if (error.code === "P0001") return { erro: error.message };
     return { erro: "Não foi possível salvar o agendamento." };
   }
 
   revalidatePath("/agenda");
-  redirect(`/agenda?data=${data}&prof=${profissionalId}`);
+  redirect(`/agenda?data=${data}&prof=${periodos[0].profissional_id}`);
 }
 
 const STATUS_PERMITIDOS: StatusAgendamento[] = ["aguardando", "confirmado", "cancelado", "faltou"];
