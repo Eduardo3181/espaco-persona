@@ -9,6 +9,8 @@ import { formatarDiaISO, formatarReais, hojeISO } from "@/lib/formato";
 import {
   FORMAS_PAGAMENTO_COMISSAO, periodoAnterior, periodoDaChave, periodoDaData, periodoSeguinte, type Periodo,
 } from "@/lib/periodo";
+import { obterConfigEquipe } from "@/lib/config";
+import type { DiasPagamento } from "@/lib/periodo";
 import { desfazerPagamento, registrarPagamento } from "./actions";
 
 export const metadata: Metadata = { title: "Comissões" };
@@ -26,10 +28,11 @@ const ddmm = (iso: string) => iso.split("-").reverse().slice(0, 2).join("/");
 export default async function PaginaComissoes({ searchParams }: PageProps<"/comissoes">) {
   const { profissional: eu } = await exigirEquipe();
   const sp = await searchParams;
-  const periodo = periodoDaChave(sp.p) ?? periodoDaData(hojeISO());
+  const { dias } = await obterConfigEquipe();
+  const periodo = periodoDaChave(sp.p, dias) ?? periodoDaData(hojeISO(), dias);
   const supabase = await criarClienteServidor();
 
-  if (eu.papel !== "dono") return <VisaoProfissional supabase={supabase} euId={eu.id} periodo={periodo} />;
+  if (eu.papel !== "dono") return <VisaoProfissional supabase={supabase} euId={eu.id} periodo={periodo} dias={dias} />;
 
   const aba = sp.aba === "pagas" ? "pagas" : "apagar";
   return (
@@ -39,7 +42,7 @@ export default async function PaginaComissoes({ searchParams }: PageProps<"/comi
         { id: "pagas", rotulo: "Pagas", href: "/comissoes?aba=pagas" },
       ]} />
       {aba === "apagar"
-        ? <APagar supabase={supabase} periodo={periodo} acabouDePagar={sp.pago === "1"} />
+        ? <APagar supabase={supabase} periodo={periodo} dias={dias} acabouDePagar={sp.pago === "1"} />
         : <Pagas supabase={supabase} ver={typeof sp.ver === "string" ? sp.ver : undefined} />}
     </div>
   );
@@ -49,14 +52,14 @@ export default async function PaginaComissoes({ searchParams }: PageProps<"/comi
 // Peças comuns
 // ======================================================================
 
-function SeletorPeriodo({ periodo, extra = "" }: { periodo: Periodo; extra?: string }) {
-  const atual = periodoDaData(hojeISO()).chave === periodo.chave;
+function SeletorPeriodo({ periodo, dias, extra = "" }: { periodo: Periodo; dias: DiasPagamento; extra?: string }) {
+  const atual = periodoDaData(hojeISO(), dias).chave === periodo.chave;
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Link href={`/comissoes?p=${periodoAnterior(periodo).chave}${extra}`} className="flex size-11 items-center justify-center rounded-lg border border-borda bg-cartao" aria-label="Período anterior">
+      <Link href={`/comissoes?p=${periodoAnterior(periodo, dias).chave}${extra}`} className="flex size-11 items-center justify-center rounded-lg border border-borda bg-cartao" aria-label="Período anterior">
         <ChevronLeft size={20} />
       </Link>
-      <Link href={`/comissoes?p=${periodoSeguinte(periodo).chave}${extra}`} className="flex size-11 items-center justify-center rounded-lg border border-borda bg-cartao" aria-label="Próximo período">
+      <Link href={`/comissoes?p=${periodoSeguinte(periodo, dias).chave}${extra}`} className="flex size-11 items-center justify-center rounded-lg border border-borda bg-cartao" aria-label="Próximo período">
         <ChevronRight size={20} />
       </Link>
       <div>
@@ -98,7 +101,7 @@ async function extrato(supabase: Supabase, profId: string, p: Periodo) {
 // DONO: A pagar
 // ======================================================================
 
-async function APagar({ supabase, periodo, acabouDePagar }: { supabase: Supabase; periodo: Periodo; acabouDePagar: boolean }) {
+async function APagar({ supabase, periodo, dias, acabouDePagar }: { supabase: Supabase; periodo: Periodo; dias: DiasPagamento; acabouDePagar: boolean }) {
   const [{ data: profs }, { data: antigos }] = await Promise.all([
     supabase.from("profissionais").select("id, nome, cor, ativo").order("nome"),
     supabase.from("lancamentos_profissional").select("data").is("pagamento_id", null).lt("data", periodo.inicio),
@@ -109,13 +112,13 @@ async function APagar({ supabase, periodo, acabouDePagar }: { supabase: Supabase
 
   // Períodos anteriores ainda sem baixa
   const pendentesAntes = [...new Map((antigos ?? []).map((l) => {
-    const per = periodoDaData(l.data);
+    const per = periodoDaData(l.data, dias);
     return [per.chave, per] as const;
   })).values()].sort((a, b) => a.inicio.localeCompare(b.inicio));
 
   return (
     <>
-      <SeletorPeriodo periodo={periodo} />
+      <SeletorPeriodo periodo={periodo} dias={dias} />
 
       {acabouDePagar && (
         <p role="status" className="flex items-center gap-2 rounded-lg border border-sucesso/30 bg-[#E3EFE5] px-3 py-2 text-sm font-semibold text-sucesso">
@@ -256,7 +259,7 @@ async function Pagas({ supabase, ver }: { supabase: Supabase; ver?: string }) {
 // PROFISSIONAL: os próprios valores
 // ======================================================================
 
-async function VisaoProfissional({ supabase, euId, periodo }: { supabase: Supabase; euId: string; periodo: Periodo }) {
+async function VisaoProfissional({ supabase, euId, periodo, dias }: { supabase: Supabase; euId: string; periodo: Periodo; dias: DiasPagamento }) {
   const [linhas, { data: pags }] = await Promise.all([
     extrato(supabase, euId, periodo),
     supabase.from("pagamentos_profissional").select("id, periodo_inicio, periodo_fim, data_pagamento, total_pago_centavos").order("data_pagamento", { ascending: false }).limit(12),
@@ -267,7 +270,7 @@ async function VisaoProfissional({ supabase, euId, periodo }: { supabase: Supaba
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
-      <SeletorPeriodo periodo={periodo} />
+      <SeletorPeriodo periodo={periodo} dias={dias} />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Cartao><p className="text-xs text-suave">Comissões</p><p className="text-xl font-bold">{formatarReais(somar(linhas, "comissao"))}</p></Cartao>
         <Cartao><p className="text-xs text-suave">Caixinhas</p><p className="text-xl font-bold">{formatarReais(somar(linhas, "caixinha"))}</p></Cartao>

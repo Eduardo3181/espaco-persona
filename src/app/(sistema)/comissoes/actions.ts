@@ -6,13 +6,15 @@ import { exigirDono } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import { dataValida } from "@/lib/agenda";
 import { periodoDaChave } from "@/lib/periodo";
+import { obterConfigEquipe } from "@/lib/config";
 import type { EstadoForm } from "@/components/formulario";
 
 const texto = (d: FormData, campo: string) => String(d.get(campo) ?? "").trim();
 
 export async function registrarPagamento(_e: EstadoForm, dados: FormData): Promise<EstadoForm> {
   await exigirDono();
-  const periodo = periodoDaChave(texto(dados, "periodo"));
+  const { dias } = await obterConfigEquipe();
+  const periodo = periodoDaChave(texto(dados, "periodo"), dias);
   const data = texto(dados, "data_pagamento");
   const forma = texto(dados, "forma");
   if (!periodo) return { erro: "Período inválido." };

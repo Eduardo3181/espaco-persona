@@ -10,6 +10,7 @@ import { formatarDuracao, formatarTelefone, linkWhatsApp } from "@/lib/formato";
 import { STATUS, dataPorExtenso, partesSP, type StatusAgendamento } from "@/lib/agenda";
 import { excluirAgendamento, excluirBloqueio, mudarStatus } from "../actions";
 import { abrirComanda } from "../../comandas/actions";
+import { obterConfigEquipe, preencherMensagem } from "@/lib/config";
 
 export const metadata: Metadata = { title: "Agendamento" };
 
@@ -87,12 +88,14 @@ export default async function DetalheAgendamento({ params }: PageProps<"/agenda/
   }
 
   const primeiroNome = a.clientes?.nome.split(" ")[0] ?? "";
-  const nomesServ = servicos.map((s) => s.servicos?.nome).filter(Boolean).join(", ");
   const [, mm, dd] = ini.data.split("-");
-  const msgConfirmacao =
-    `Olá, ${primeiroNome}! Aqui é do Espaço Persona. ` +
-    `Confirmando seu horário ${dataPorExtenso(ini.data).split(",")[0]}, ${dd}/${mm}, às ${ini.hora} com ${a.profissionais?.nome.split(" ")[0]}` +
-    `${nomesServ ? ` (${nomesServ})` : ""}. Podemos confirmar?`;
+  const { msgConfirmacao: modelo } = await obterConfigEquipe();
+  const msgConfirmacao = preencherMensagem(modelo, {
+    cliente: primeiroNome,
+    data: `${dataPorExtenso(ini.data).split(",")[0]}, ${dd}/${mm}`,
+    hora: ini.hora,
+    profissional: a.profissionais?.nome.split(" ")[0] ?? "",
+  });
   const editavel = a.status !== "em_atendimento" && a.status !== "concluido";
   const desmarcado = a.status === "cancelado" || a.status === "faltou";
 

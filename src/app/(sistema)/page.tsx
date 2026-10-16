@@ -5,6 +5,8 @@ import { exigirEquipe } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import { formatarReais, hojeISO } from "@/lib/formato";
 import { periodoDaData } from "@/lib/periodo";
+import { obterConfigEquipe } from "@/lib/config";
+import { Aniversariantes } from "@/components/aniversariantes";
 
 export default async function Inicio() {
   const { profissional } = await exigirEquipe();
@@ -15,7 +17,7 @@ export default async function Inicio() {
   const supabase = await criarClienteServidor();
   let aReceber: { valor: number; dia: string } | null = null;
   if (!ehDono) {
-    const periodo = periodoDaData(hojeISO());
+    const periodo = periodoDaData(hojeISO(), (await obterConfigEquipe()).dias);
     const { data } = await supabase.rpc("extrato_profissional", { p_profissional_id: profissional.id, p_inicio: periodo.inicio, p_fim: periodo.fim });
     const linhas = (data ?? []) as { valor_centavos: number; pagamento_id: string | null }[];
     aReceber = { valor: linhas.filter((l) => !l.pagamento_id).reduce((t, l) => t + l.valor_centavos, 0), dia: periodo.pagamento.split("-").reverse().slice(0, 2).join("/") };
@@ -68,6 +70,8 @@ export default async function Inicio() {
           <span className="font-medium">{a.texto}</span>
         </Link>
       ))}
+
+      <Aniversariantes />
 
       <div className="grid gap-4 sm:grid-cols-3">
         {atalhos.map((a) => (
