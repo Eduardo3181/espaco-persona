@@ -1,6 +1,6 @@
 -- =====================================================================
 -- Teste de segurança (RLS) do perfil PROFISSIONAL.
--- Cria um login temporário para a Valdete, simula o acesso dela e,
+-- Simula a Di (profissional) logada com o login real dela e,
 -- no final, DESFAZ TUDO (a exceção final cancela a transação).
 -- Rodar:  npx supabase db query --linked -f supabase/tests/rls_profissional.sql
 -- Resultado esperado: mensagem "RESULTADO: ..." com todos os itens OK.
@@ -8,7 +8,7 @@
 do $$
 declare
   v_usuario uuid := gen_random_uuid();
-  v_valdete uuid;
+  v_prof uuid;
   v_eduardo uuid;
   v_cliente uuid;
   v_anotacao_eduardo uuid;
@@ -17,14 +17,13 @@ declare
   falhou boolean := false;
 
 begin
-  select id into v_valdete from public.profissionais where nome = 'Valdete Costa';
+  select id into v_prof from public.profissionais where nome = 'Di';
   select id into v_eduardo from public.profissionais where papel = 'dono' limit 1;
   select id into v_cliente from public.clientes order by criado_em limit 1;
 
   -- Login temporário (ligado à Valdete) e uma anotação do dono para os testes
-  update public.profissionais set email = 'teste-rls@exemplo.invalid' where id = v_valdete;
-  insert into auth.users (id, instance_id, aud, role, email)
-  values (v_usuario, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'teste-rls@exemplo.invalid');
+  -- Usa o login real da profissional sob teste (só simulação; tudo é desfeito no final)
+  select usuario_id into v_usuario from public.profissionais where id = v_prof;
   insert into public.anotacoes_clientes (cliente_id, autor_id, texto)
   values (v_cliente, v_eduardo, 'anotação do dono (teste)') returning id into v_anotacao_eduardo;
 
@@ -46,7 +45,7 @@ begin
   r := r || format(' view saldos=%s %s;', n, case when n = 0 then 'OK' else 'FALHA' end);
   if n <> 0 then falhou := true; end if;
 
-  select count(*) into n from public.regras_comissao where profissional_id <> v_valdete;
+  select count(*) into n from public.regras_comissao where profissional_id <> v_prof;
   r := r || format(' regras de outras=%s %s;', n, case when n = 0 then 'OK' else 'FALHA' end);
   if n <> 0 then falhou := true; end if;
 
@@ -71,7 +70,7 @@ begin
   r := r || format(' excluir cliente=%s %s;', n, case when n = 0 then 'OK' else 'FALHA' end);
   if n <> 0 then falhou := true; end if;
 
-  update public.profissionais set papel = 'dono' where id = v_valdete;
+  update public.profissionais set papel = 'dono' where id = v_prof;
   get diagnostics n = row_count;
   r := r || format(' virar dono=%s %s;', n, case when n = 0 then 'OK' else 'FALHA' end);
   if n <> 0 then falhou := true; end if;

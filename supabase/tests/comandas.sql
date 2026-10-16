@@ -7,15 +7,15 @@ do $$
 declare
   v_dono_user uuid;
   v_val_user uuid := gen_random_uuid();
-  v_valdete uuid; v_di uuid; v_cliente uuid;
+  v_prof uuid; v_outra uuid; v_cliente uuid;
   v_escova uuid; v_color uuid; v_cat_color uuid; v_cat_prod uuid; v_prod uuid;
   v_comanda uuid; v_item_di uuid; v_item_val uuid;
   v_json jsonb; n int; v_num numeric; v_txt text;
   r text := ''; falhou boolean := false;
 begin
   select usuario_id into v_dono_user from public.profissionais where papel = 'dono' and usuario_id is not null limit 1;
-  select id into v_valdete from public.profissionais where nome = 'Valdete Costa';
-  select id into v_di from public.profissionais where nome = 'Di';
+  select id into v_prof from public.profissionais where nome = 'Di';
+  select id into v_outra from public.profissionais where nome = 'Valdete Costa';
   select id into v_escova from public.servicos where nome = 'Escova 1';
   select id, categoria_id into v_color, v_cat_color from public.servicos where nome = 'Coloração';
   select id into v_cat_prod from public.categorias where tipo = 'produto' limit 1;
@@ -25,31 +25,31 @@ begin
   insert into public.movimentos_saldo (cliente_id, valor_centavos, descricao) values (v_cliente, 5000, 'crédito teste');
   insert into public.produtos (nome, categoria_id, preco_centavos, estoque, comissao_percentual)
   values ('ZZ Produto', v_cat_prod, 5000, 5, 10) returning id into v_prod;
-  insert into public.regras_comissao (profissional_id, tipo, percentual) values (v_valdete, 'padrao', 40);
-  insert into public.regras_comissao (profissional_id, tipo, categoria_id, percentual) values (v_valdete, 'categoria', v_cat_color, 35);
-  insert into public.regras_comissao (profissional_id, tipo, servico_id, percentual) values (v_valdete, 'servico', v_escova, 45);
+  insert into public.regras_comissao (profissional_id, tipo, percentual) values (v_prof, 'padrao', 40);
+  insert into public.regras_comissao (profissional_id, tipo, categoria_id, percentual) values (v_prof, 'categoria', v_cat_color, 35);
+  insert into public.regras_comissao (profissional_id, tipo, servico_id, percentual) values (v_prof, 'servico', v_escova, 45);
 
   -- ================= Como DONO
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_dono_user, 'role', 'authenticated')::text, true);
 
   v_comanda := public.abrir_comanda(v_cliente, null);
-  perform public.lancar_item(v_comanda, 'servico', v_escova, 1, v_valdete);   -- 85,00 × 45% (exceção do serviço)
-  perform public.lancar_item(v_comanda, 'servico', v_color, 1, v_valdete);    -- 265,00 × 35% (categoria)
-  perform public.lancar_item(v_comanda, 'produto', v_prod, 2, v_valdete);     -- 2 × 50,00 × 10% (produto)
-  v_item_di := public.lancar_item(v_comanda, 'servico', v_escova, 1, v_di);   -- Di sem regra → 0%
+  perform public.lancar_item(v_comanda, 'servico', v_escova, 1, v_prof);   -- 85,00 × 45% (exceção do serviço)
+  perform public.lancar_item(v_comanda, 'servico', v_color, 1, v_prof);    -- 265,00 × 35% (categoria)
+  perform public.lancar_item(v_comanda, 'produto', v_prod, 2, v_prof);     -- 2 × 50,00 × 10% (produto)
+  v_item_di := public.lancar_item(v_comanda, 'servico', v_escova, 1, v_outra);   -- outra sem regra → 0%
   -- total itens = 85 + 265 + 100 + 85 = 535,00 ; caixinha 10,00 → total 545,00
   perform public.fechar_comanda(v_comanda,
-    ('[{"profissional_id":"' || v_valdete || '","valor_centavos":1000}]')::jsonb,
+    ('[{"profissional_id":"' || v_prof || '","valor_centavos":1000}]')::jsonb,
     '[{"forma":"saldo","valor_centavos":8000},{"forma":"credito","valor_centavos":46500}]');
 
-  select sum(valor_centavos) into n from public.lancamentos_profissional where comanda_id = v_comanda and profissional_id = v_valdete and tipo = 'comissao';
+  select sum(valor_centavos) into n from public.lancamentos_profissional where comanda_id = v_comanda and profissional_id = v_prof and tipo = 'comissao';
   -- 85×0,45=38,25 ; 265×0,35=92,75 ; 100×0,10=10,00 → 141,00
-  r := r || format(' comissão Valdete=%s %s;', n, case when n = 14100 then 'OK' else 'FALHA (esperado 14100)' end);
+  r := r || format(' comissão da profissional=%s %s;', n, case when n = 14100 then 'OK' else 'FALHA (esperado 14100)' end);
   if n <> 14100 then falhou := true; end if;
 
   select comissao_percentual into v_num from public.comanda_itens where id = v_item_di;
-  r := r || format(' Di sem regra=%s%% %s;', v_num, case when v_num = 0 then 'OK' else 'FALHA' end);
+  r := r || format(' outra sem regra=%s%% %s;', v_num, case when v_num = 0 then 'OK' else 'FALHA' end);
   if v_num <> 0 then falhou := true; end if;
 
   select valor_centavos into n from public.lancamentos_profissional where comanda_id = v_comanda and tipo = 'caixinha';
@@ -69,7 +69,7 @@ begin
   if n <> -3000 then falhou := true; end if;
 
   -- Regra muda depois: o histórico não muda
-  update public.regras_comissao set percentual = 99 where profissional_id = v_valdete and tipo = 'categoria';
+  update public.regras_comissao set percentual = 99 where profissional_id = v_prof and tipo = 'categoria';
   select comissao_percentual into v_num from public.comanda_itens where comanda_id = v_comanda and servico_id = v_color;
   r := r || format(' %% gravado não muda=%s %s;', v_num, case when v_num = 35 then 'OK' else 'FALHA' end);
   if v_num <> 35 then falhou := true; end if;
@@ -89,12 +89,11 @@ begin
   r := r || format(' log=%s %s;', n, case when n >= 2 then 'OK' else 'FALHA' end);
   if n < 2 then falhou := true; end if;
 
-  -- ================= Como VALDETE (profissional)
+  -- ================= Como a PROFISSIONAL (Di)
   perform set_config('role', 'postgres', true);
   reset role;
-  update public.profissionais set email = 'teste-rls@exemplo.invalid' where id = v_valdete;
-  insert into auth.users (id, instance_id, aud, role, email)
-  values (v_val_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'teste-rls@exemplo.invalid');
+  -- Usa o login real da profissional sob teste (só simulação; tudo é desfeito no final)
+  select usuario_id into v_val_user from public.profissionais where id = v_prof;
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_val_user, 'role', 'authenticated')::text, true);
 
@@ -110,17 +109,17 @@ begin
   r := r || format(' comanda sem valores %s;', case when v_json is not null and v_txt not like '%%valor%%' then 'OK' else 'FALHA' end);
   if v_json is null or v_txt like '%%valor%%' then falhou := true; end if;
 
-  v_item_val := public.lancar_item(v_comanda, 'servico', v_escova, 1, v_di);   -- tenta lançar em nome da Di
+  v_item_val := public.lancar_item(v_comanda, 'servico', v_escova, 1, v_outra);   -- tenta lançar em nome da outra
   reset role;
   select profissional_id into v_txt from public.comanda_itens where id = v_item_val;
   perform set_config('role', 'authenticated', true);
-  r := r || format(' lançar em nome de outra → %s;', case when v_txt = v_valdete::text then 'fica no nome dela OK' else 'FALHA' end);
-  if v_txt <> v_valdete::text then falhou := true; end if;
+  r := r || format(' lançar em nome de outra → %s;', case when v_txt = v_prof::text then 'fica no nome dela OK' else 'FALHA' end);
+  if v_txt <> v_prof::text then falhou := true; end if;
 
   begin
     perform public.remover_item(v_item_di);
-    r := r || ' remover item da Di: FALHA (permitiu);'; falhou := true;
-  exception when others then r := r || ' remover item da Di bloqueado OK;';
+    r := r || ' remover item da outra: FALHA (permitiu);'; falhou := true;
+  exception when others then r := r || ' remover item da outra bloqueado OK;';
   end;
 
   begin

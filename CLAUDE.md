@@ -8,7 +8,7 @@ Sistema web de gestão para o salão **Espaço Persona – Hair and Beauty** (S�
 
 Equipe atual:
 - **Eduardo Persan**: dono, cabeleireiro, acesso total, não recebe comissão
-- **Valdete Costa**: cabeleireira, acesso de profissional
+- **Valdete Costa**: cabeleireira e **sócia/dona** — acesso total (perfil dono), **recebe comissão** pelos próprios atendimentos
 - **Di**: manicure, acesso de profissional
 
 Toda a interface é em **português do Brasil**. Valores em reais (R$ 1.234,56), datas em dd/mm/aaaa, fuso America/Sao_Paulo.
@@ -171,3 +171,4 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - **Testes de segurança** em `supabase/tests/*.sql` (rodam e desfazem tudo): `npx supabase db query --linked -f supabase/tests/<arquivo>.sql`
 - **Configurações**: acesso de profissionais continua pelo e-mail em Equipe + criar o login no painel do Supabase (sem chave secreta no sistema). Dias de pagamento são **dois dias do mês configuráveis** (padrão 1 e 16): cada período vai de um dia de pagamento até a véspera do seguinte
 - **PWA**: ícone do app usa só o **símbolo** do logo sobre fundo escuro; o service worker não guarda dados (só a página offline). Instalação no celular só funciona depois de publicado (https)
+- **Equipe (18/10/2026)**: Valdete passou a ter perfil **dono** e continua com comissão; Di é profissional. Ordem na agenda: Eduardo, Valdete, Di (campo "Posição na agenda" em Equipe). Os testes de segurança usam a **Di** como profissional (login real, só em simulação)
