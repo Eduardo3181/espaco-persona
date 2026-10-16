@@ -5,11 +5,14 @@
 -- =====================================================================
 
 -- Equipe. O login é ligado automaticamente pelo e-mail.
-insert into public.profissionais (nome, email, funcao, papel, recebe_comissao, cor) values
-  ('Eduardo Persan', 'espacopersona.beauty@gmail.com', 'Cabeleireiro', 'dono',         false, '#96604A'),
-  ('Valdete Costa',  null,                             'Cabeleireira', 'profissional', true,  '#6F4F8C'),
-  ('Di',             null,                             'Manicure',     'profissional', true,  '#2F6B3A')
-on conflict do nothing;
+-- (Pode rodar de novo sem duplicar: só insere quem ainda não existe.)
+insert into public.profissionais (nome, email, funcao, papel, recebe_comissao, cor)
+select v.* from (values
+  ('Eduardo Persan', 'espacopersona.beauty@gmail.com', 'Cabeleireiro', 'dono'::public.papel_usuario,         false, '#96604A'),
+  ('Valdete Costa',  null,                             'Cabeleireira', 'profissional'::public.papel_usuario, true,  '#6F4F8C'),
+  ('Di',             null,                             'Manicure',     'profissional'::public.papel_usuario, true,  '#2F6B3A')
+) as v(nome, email, funcao, papel, recebe_comissao, cor)
+where not exists (select 1 from public.profissionais p where p.nome = v.nome);
 
 -- Categorias
 insert into public.categorias (nome, tipo) values

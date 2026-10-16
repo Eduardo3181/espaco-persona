@@ -50,6 +50,37 @@ export function formatarDuracao(min: number): string {
   return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
 }
 
+/** Guarda só os números do telefone. "(11) 98765-4321" → "11987654321". Remove o 55 do Brasil. */
+export function normalizarTelefone(texto: string): string {
+  let n = texto.replace(/\D/g, "");
+  if (n.length >= 12 && n.startsWith("55")) n = n.slice(2);
+  return n;
+}
+
+/** "11987654321" → "(11) 98765-4321" */
+export function formatarTelefone(n: string | null): string {
+  if (!n) return "";
+  if (n.length === 11) return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}`;
+  if (n.length === 10) return `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`;
+  return n;
+}
+
+/** Link do WhatsApp com texto opcional */
+export function linkWhatsApp(telefone: string, texto?: string): string {
+  const base = `https://wa.me/55${telefone}`;
+  return texto ? `${base}?text=${encodeURIComponent(texto)}` : base;
+}
+
+const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+/** Aniversário: "12 de março" ou "12 de março de 1988" */
+export function formatarAniversario(dia: number | null, mes: number | null, ano?: number | null): string {
+  if (!dia || !mes) return "";
+  return `${dia} de ${MESES[mes - 1]}${ano ? ` de ${ano}` : ""}`;
+}
+
+export { MESES };
+
 const data = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" });
 const dataHora = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
@@ -60,7 +91,19 @@ export function formatarData(valor: string | Date): string {
   return data.format(new Date(valor));
 }
 
+/** Data sem hora do banco ("2026-10-15") → "15/10/2026" (sem conversão de fuso) */
+export function formatarDiaISO(iso: string): string {
+  const [a, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${a}`;
+}
+
+/** Hoje em São Paulo no formato "2026-10-15" */
+export function hojeISO(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+}
+
 /** dd/mm/aaaa hh:mm no fuso de São Paulo */
 export function formatarDataHora(valor: string | Date): string {
-  return dataHora.format(new Date(valor));
+  const p = Object.fromEntries(dataHora.formatToParts(new Date(valor)).map((x) => [x.type, x.value]));
+  return `${p.day}/${p.month}/${p.year} às ${p.hour}:${p.minute}`;
 }
