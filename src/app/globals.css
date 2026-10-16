@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+/* Identidade visual — Espaço Persona */
+@theme inline {
+  --color-fundo: #F7F4F2;
+  --color-cartao: #FFFFFF;
+  --color-borda: #E6DFDA;
+  --color-escuro: #1C1B1F;
+  --color-escuro-2: #2A282E;
+  --color-rose: #96604A;
+  --color-rose-escuro: #7D4E3B;
+  --color-rose-claro: #C8957B;
+  --color-sobre-escuro: #F0D3C2;
+  --color-texto: #1C1B1F;
+  --color-suave: #6B625E;
+  --color-sucesso: #2F6B3A;
+  --color-erro: #9B2C2C;
+
+  --color-agendado-fundo: #F3E3DA;
+  --color-agendado: #96604A;
+  --color-aguardando-fundo: #FFF1D2;
+  --color-aguardando: #A87A1F;
+  --color-atendimento-fundo: #E7E0EE;
+  --color-atendimento: #6F4F8C;
+  --color-concluido-fundo: #EEEBE8;
+  --color-concluido: #A39A95;
+
+  --font-sans: var(--font-jakarta);
+  --font-titulo: var(--font-cormorant);
+}
+
+body {
+  background: var(--color-fundo);
+  color: var(--color-texto);
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+}
+
+/* Foco visível para teclado */
+:focus-visible {
+  outline: 2px solid var(--color-rose);
+  outline-offset: 2px;
+}
