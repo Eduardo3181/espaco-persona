@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import {
-  CalendarDays, ChartColumn, House, Menu, Receipt, Scissors, Settings, UserRound, Users, X, LogOut, HandCoins,
+  CalendarDays, ChartColumn, House, Menu, Receipt, Scissors, Settings, UserRound, Users, X, LogOut, HandCoins, KeyRound,
 } from "lucide-react";
 import type { Papel } from "@/lib/sessao";
 
@@ -42,7 +42,7 @@ export function Estrutura({
   const pathname = usePathname();
   const [aberto, setAberto] = useState(false);
   const itens = ITENS.filter((i) => papel === "dono" || !i.soDono);
-  const titulo = itens.filter((i) => ativo(pathname, i.href)).at(-1)?.rotulo ?? "Espaço Persona";
+  const titulo = pathname === "/minha-senha" ? "Minha senha" : itens.filter((i) => ativo(pathname, i.href)).at(-1)?.rotulo ?? "Espaço Persona";
 
   return (
     <div className="min-h-dvh md:flex">
@@ -85,7 +85,10 @@ export function Estrutura({
               );
             })}
           </ul>
-          <form action={acaoSair} className="mt-4 border-t border-white/10 pt-4 md:hidden">
+          <Link href="/minha-senha" onClick={() => setAberto(false)} className="mt-4 flex min-h-11 items-center gap-3 rounded-lg border-t border-white/10 px-3 pt-4 text-sm text-sobre-escuro/85 hover:bg-escuro-2 md:hidden">
+            <KeyRound size={18} aria-hidden /> Minha senha
+          </Link>
+          <form action={acaoSair} className="md:hidden">
             <button className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm text-sobre-escuro/85 hover:bg-escuro-2">
               <LogOut size={18} aria-hidden /> Sair
             </button>
@@ -97,10 +100,10 @@ export function Estrutura({
         <header className="flex items-center justify-between gap-4 border-b border-borda bg-cartao px-4 py-3 sm:px-6">
           <h1 className="font-titulo text-2xl font-bold sm:text-3xl">{titulo}</h1>
           <div className="flex items-center gap-3">
-            <div className="text-right text-sm leading-tight">
+            <Link href="/minha-senha" className="rounded-lg px-2 py-1 text-right text-sm leading-tight hover:bg-fundo" title="Alterar minha senha">
               <p className="font-semibold">{nome}</p>
               <p className="text-xs text-suave">{papel === "dono" ? "Dono" : "Profissional"}</p>
-            </div>
+            </Link>
             <form action={acaoSair} className="hidden md:block">
               <button className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-suave hover:bg-fundo hover:text-texto" aria-label="Sair" title="Sair">
                 <LogOut size={20} />
