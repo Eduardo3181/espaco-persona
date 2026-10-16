@@ -28,7 +28,7 @@ export default async function PaginaServicos({ searchParams }: PageProps<"/servi
     supabase.from("produtos").select("*").order("nome"),
     supabase.from("pacotes").select("*").order("nome"),
     supabase.from("pacote_servicos").select("*"),
-    supabase.from("profissionais").select("id, nome, recebe_comissao, ativo").eq("ativo", true).order("nome"),
+    supabase.from("profissionais").select("id, nome, recebe_comissao, ativo").eq("ativo", true).order("ordem").order("nome"),
     ehDono ? supabase.from("regras_comissao").select("*") : Promise.resolve({ data: [] as RegraComissao[] }),
   ]);
 

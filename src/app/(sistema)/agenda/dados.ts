@@ -7,7 +7,7 @@ type Eu = NonNullable<UsuarioAtual["profissional"]>;
 
 /** Profissionais que a pessoa pode usar na agenda: o dono vê todas; a profissional, só ela. */
 export async function profissionaisDaAgenda(supabase: Supabase, eu: Eu) {
-  const q = supabase.from("profissionais").select("id, nome").eq("ativo", true).order("nome");
+  const q = supabase.from("profissionais").select("id, nome").eq("ativo", true).order("ordem").order("nome");
   const { data } = eu.papel === "dono" ? await q : await q.eq("id", eu.id);
   return data ?? [];
 }

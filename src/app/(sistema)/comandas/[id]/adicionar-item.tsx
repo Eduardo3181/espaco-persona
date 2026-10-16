@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { BotaoEnviar, MensagemErro, useEnvioSemLimpar } from "@/components/formulario";
 import { classeInput } from "@/components/ui";
+import { BuscaItem } from "@/components/busca-item";
 import { lancarItem } from "../actions";
 
 type Opcao = { id: string; nome: string; grupo: string };
@@ -19,33 +20,37 @@ export function AdicionarItem({ comandaId, servicos, produtos, profissionais, po
 }) {
   const { estado, aoEnviar, pendente } = useEnvioSemLimpar(lancarItem);
   const [tipo, setTipo] = useState<"servico" | "produto">("servico");
+  const [escolhido, setEscolhido] = useState<Opcao | null>(null);
   const opcoes = tipo === "servico" ? servicos : produtos;
-  const grupos = [...new Set(opcoes.map((o) => o.grupo))];
 
   return (
-    <form onSubmit={aoEnviar} className="flex flex-col gap-3 rounded-lg border border-dashed border-borda p-3">
+    <form onSubmit={(e) => { aoEnviar(e); setEscolhido(null); }} className="flex flex-col gap-3 rounded-lg border border-dashed border-borda p-3">
       <MensagemErro erro={estado?.erro} />
       <input type="hidden" name="comanda_id" value={comandaId} />
       <div className="flex gap-1" role="radiogroup" aria-label="Tipo de item">
         {(["servico", "produto"] as const).map((t) => (
-          <button key={t} type="button" role="radio" aria-checked={tipo === t} onClick={() => setTipo(t)}
+          <button key={t} type="button" role="radio" aria-checked={tipo === t} onClick={() => { setTipo(t); setEscolhido(null); }}
             className={`min-h-11 flex-1 rounded-lg text-sm font-semibold sm:flex-none sm:px-5 ${tipo === t ? "bg-escuro text-sobre-escuro" : "border border-borda bg-cartao"}`}>
             {t === "servico" ? "Serviço" : "Produto"}
           </button>
         ))}
       </div>
       <div className="grid gap-2 sm:grid-cols-[1fr_5rem_12rem_auto] sm:items-end">
-        <label className="flex flex-col gap-1 text-sm">
+        <div className="flex flex-col gap-1 text-sm">
           <span className="font-medium">{tipo === "servico" ? "Serviço" : "Produto"}</span>
-          <select key={tipo} name="item" required defaultValue="" className={classeInput}>
-            <option value="" disabled>Escolha…</option>
-            {grupos.map((g) => (
-              <optgroup key={g} label={g}>
-                {opcoes.filter((o) => o.grupo === g).map((o) => <option key={o.id} value={`${tipo}:${o.id}`}>{o.nome}</option>)}
-              </optgroup>
-            ))}
-          </select>
-        </label>
+          {escolhido ? (
+            <span className="flex min-h-11 items-center justify-between gap-2 rounded-lg border border-rose-claro bg-agendado-fundo/50 pl-3">
+              <input type="hidden" name="item" value={`${tipo}:${escolhido.id}`} />
+              <strong className="truncate">{escolhido.nome}</strong>
+              <button type="button" onClick={() => setEscolhido(null)} aria-label="Trocar item"
+                className="flex min-h-11 min-w-11 items-center justify-center text-suave hover:text-erro"><X size={18} /></button>
+            </span>
+          ) : (
+            <BuscaItem key={tipo} rotulo={tipo === "servico" ? "Buscar serviço" : "Buscar produto"}
+              placeholder={tipo === "servico" ? "Digite o serviço…" : "Digite o produto…"}
+              opcoes={opcoes} aoEscolher={(id) => setEscolhido(opcoes.find((o) => o.id === id) ?? null)} />
+          )}
+        </div>
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium">Qtd.</span>
           <input name="quantidade" type="number" min={1} defaultValue={1} required className={classeInput} />

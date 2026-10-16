@@ -24,6 +24,7 @@ export async function salvarProfissional(_e: EstadoForm, dados: FormData): Promi
     papel: dados.get("papel") === "dono" ? "dono" : "profissional",
     recebe_comissao: dados.get("recebe_comissao") === "on",
     cor: String(dados.get("cor") ?? "#96604A"),
+    ordem: Math.min(Math.max(Math.round(Number(dados.get("ordem")) || 99), 1), 99),
     ativo: dados.get("ativo") === "on",
   };
   if (!nome) return { erro: "Informe o nome." };

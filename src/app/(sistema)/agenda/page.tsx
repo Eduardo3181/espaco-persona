@@ -39,7 +39,7 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
   const supabase = await criarClienteServidor();
   const [{ data: profs }, { data: ags }] = await Promise.all([
     ehDono
-      ? supabase.from("profissionais").select("id, nome, cor").eq("ativo", true).order("nome")
+      ? supabase.from("profissionais").select("id, nome, cor").eq("ativo", true).order("ordem").order("nome")
       : supabase.from("profissionais").select("id, nome, cor").eq("id", eu.id),
     supabase
       .from("agendamentos")

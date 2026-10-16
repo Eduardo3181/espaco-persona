@@ -103,7 +103,7 @@ async function extrato(supabase: Supabase, profId: string, p: Periodo) {
 
 async function APagar({ supabase, periodo, dias, acabouDePagar }: { supabase: Supabase; periodo: Periodo; dias: DiasPagamento; acabouDePagar: boolean }) {
   const [{ data: profs }, { data: antigos }] = await Promise.all([
-    supabase.from("profissionais").select("id, nome, cor, ativo").order("nome"),
+    supabase.from("profissionais").select("id, nome, cor, ativo").order("ordem").order("nome"),
     supabase.from("lancamentos_profissional").select("data").is("pagamento_id", null).lt("data", periodo.inicio),
   ]);
   const extratos = await Promise.all((profs ?? []).map(async (p) => ({ ...p, linhas: await extrato(supabase, p.id, periodo) })));

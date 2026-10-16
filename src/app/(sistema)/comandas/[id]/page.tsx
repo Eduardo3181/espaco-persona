@@ -39,7 +39,7 @@ async function catalogo(supabase: Supabase) {
   const [{ data: servs }, { data: prods }, { data: profs }] = await Promise.all([
     supabase.from("servicos").select("id, nome, ativo, categoria_id, categorias(nome)").eq("ativo", true).order("nome"),
     supabase.from("produtos").select("id, nome, ativo, categorias(nome)").eq("ativo", true).order("nome"),
-    supabase.from("profissionais").select("id, nome, recebe_comissao").eq("ativo", true).order("nome"),
+    supabase.from("profissionais").select("id, nome, recebe_comissao").eq("ativo", true).order("ordem").order("nome"),
   ]);
   type S = { id: string; nome: string; categoria_id: string; categorias: { nome: string } | null };
   const ordenar = (a: { grupo: string; nome: string }, b: { grupo: string; nome: string }) =>

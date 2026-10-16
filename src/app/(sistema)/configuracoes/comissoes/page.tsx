@@ -17,7 +17,7 @@ export default async function PaginaRegras({ searchParams }: PageProps<"/configu
   const { salvo } = await searchParams;
   const supabase = await criarClienteServidor();
   const [profs, cats, servs, regs, log] = await Promise.all([
-    supabase.from("profissionais").select("id, nome, usuario_id, recebe_comissao, ativo").order("nome"),
+    supabase.from("profissionais").select("id, nome, usuario_id, recebe_comissao, ativo").order("ordem").order("nome"),
     supabase.from("categorias").select("id, nome").eq("tipo", "servico").eq("ativo", true).order("nome"),
     supabase.from("servicos").select("id, nome"),
     supabase.from("regras_comissao").select("*"),

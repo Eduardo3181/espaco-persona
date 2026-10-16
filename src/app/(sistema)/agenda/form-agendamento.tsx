@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BotaoEnviar, MensagemErro, useEnvioSemLimpar } from "@/components/formulario";
 import { Search, UserPlus, X } from "lucide-react";
 import { classeBotao, classeInput } from "@/components/ui";
+import { BuscaItem } from "@/components/busca-item";
 import { formatarDuracao, formatarTelefone } from "@/lib/formato";
 import { buscarClientes, salvarAgendamento } from "./actions";
 
@@ -39,7 +40,10 @@ export function FormAgendamento({ profissionais, podeEscolherProf, servicos, ini
   const porId = useMemo(() => new Map(servicos.map((s) => [s.id, s])), [servicos]);
   const somaServicos = escolhidos.reduce((t, id) => t + (porId.get(id)?.duracao_min ?? 0), 0);
   const duracao = duracaoManual ?? somaServicos;
-  const categorias = useMemo(() => [...new Set(servicos.map((s) => s.categoria))], [servicos]);
+  const opcoesServico = useMemo(
+    () => servicos.map((s) => ({ id: s.id, nome: s.nome, grupo: s.categoria, detalhe: formatarDuracao(s.duracao_min) })),
+    [servicos],
+  );
 
   // Busca de clientes enquanto digita
   useEffect(() => {
@@ -146,17 +150,12 @@ export function FormAgendamento({ profissionais, podeEscolherProf, servicos, ini
             ))}
           </ul>
         )}
-        <select value="" onChange={(e) => { if (e.target.value) setEscolhidos([...escolhidos, e.target.value]); }}
-          aria-label="Adicionar serviço" className={classeInput}>
-          <option value="">{escolhidos.length ? "+ Adicionar outro serviço…" : "Escolha o serviço…"}</option>
-          {categorias.map((cat) => (
-            <optgroup key={cat} label={cat}>
-              {servicos.filter((s) => s.categoria === cat).map((s) => (
-                <option key={s.id} value={s.id}>{s.nome} ({formatarDuracao(s.duracao_min)})</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+        <BuscaItem
+          rotulo="Adicionar serviço"
+          placeholder={escolhidos.length ? "Adicionar outro serviço — digite para buscar…" : "Digite o serviço (ex.: escova, corte, mão)…"}
+          opcoes={opcoesServico}
+          aoEscolher={(id) => setEscolhidos([...escolhidos, id])}
+        />
       </fieldset>
 
       <label className="flex flex-col gap-1 text-sm">

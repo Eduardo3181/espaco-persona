@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Equipe" };
 
 type Profissional = {
   id: string; nome: string; email: string | null; funcao: string | null; papel: "dono" | "profissional";
-  recebe_comissao: boolean; cor: string; ativo: boolean; usuario_id: string | null;
+  recebe_comissao: boolean; cor: string; ativo: boolean; usuario_id: string | null; ordem: number;
 };
 
 export default async function PaginaEquipe({ searchParams }: PageProps<"/equipe">) {
@@ -18,7 +18,7 @@ export default async function PaginaEquipe({ searchParams }: PageProps<"/equipe"
   const params = await searchParams;
   const editar = typeof params.editar === "string" ? params.editar : undefined;
   const supabase = await criarClienteServidor();
-  const { data } = await supabase.from("profissionais").select("*").order("ativo", { ascending: false }).order("nome");
+  const { data } = await supabase.from("profissionais").select("*").order("ativo", { ascending: false }).order("ordem").order("nome");
   const equipe = (data ?? []) as Profissional[];
   const emEdicao = editar === "novo" ? null : equipe.find((p) => p.id === editar);
   const mostrarForm = editar === "novo" || Boolean(emEdicao);
@@ -54,9 +54,15 @@ export default async function PaginaEquipe({ searchParams }: PageProps<"/equipe"
                 <option value="dono">Dono (acesso total)</option>
               </select>
             </Campo>
-            <Campo rotulo="Cor na agenda">
-              <input name="cor" type="color" defaultValue={emEdicao?.cor ?? "#96604A"} className="h-11 w-24 cursor-pointer rounded-lg border border-borda bg-cartao" />
-            </Campo>
+            <div className="flex gap-4">
+              <Campo rotulo="Cor na agenda">
+                <input name="cor" type="color" defaultValue={emEdicao?.cor ?? "#96604A"} className="h-11 w-24 cursor-pointer rounded-lg border border-borda bg-cartao" />
+              </Campo>
+              <Campo rotulo="Posição na agenda" dica="1 = primeira coluna">
+                <input name="ordem" type="number" min={1} max={99} required defaultValue={emEdicao?.ordem ?? equipe.length + 1}
+                  className={classeInput.replace("w-full ", "") + " w-24"} />
+              </Campo>
+            </div>
             <div className="flex flex-col justify-center gap-2 text-sm">
               <label className="flex min-h-11 items-center gap-3">
                 <input type="checkbox" name="recebe_comissao" defaultChecked={emEdicao?.recebe_comissao ?? true} className="size-5 accent-rose" />
