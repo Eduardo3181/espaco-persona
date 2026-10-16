@@ -59,7 +59,7 @@ export default async function FichaCliente({ params, searchParams }: PageProps<"
           <ul className="mt-2 flex flex-col gap-1 text-sm text-suave sm:flex-row sm:flex-wrap sm:gap-x-5">
             {cliente.telefone && <li className="flex items-center gap-2"><Phone size={15} aria-hidden /> {formatarTelefone(cliente.telefone)}</li>}
             {aniversario && <li className="flex items-center gap-2"><Cake size={15} aria-hidden /> {aniversario}</li>}
-            <li className="flex items-center gap-2"><CalendarHeart size={15} aria-hidden /> Cliente desde {formatarDiaISO(cliente.cliente_desde)}</li>
+            {cliente.cliente_desde && <li className="flex items-center gap-2"><CalendarHeart size={15} aria-hidden /> Cliente desde {formatarDiaISO(cliente.cliente_desde)}</li>}
           </ul>
         </div>
         <div className="flex gap-2">

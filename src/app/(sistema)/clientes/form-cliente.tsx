@@ -10,7 +10,7 @@ export type ClienteCadastro = {
   aniversario_dia: number | null;
   aniversario_mes: number | null;
   aniversario_ano: number | null;
-  cliente_desde: string;
+  cliente_desde: string | null;
 };
 
 /** Formulário de cadastro/edição dos dados básicos da cliente. */
@@ -26,7 +26,7 @@ export function FormCliente({ cliente }: { cliente?: ClienteCadastro }) {
           defaultValue={formatarTelefone(cliente?.telefone ?? null)} className={classeInput} />
       </Campo>
       <Campo rotulo="Cliente desde">
-        <input name="cliente_desde" type="date" defaultValue={cliente?.cliente_desde ?? hojeISO()} className={classeInput} />
+        <input name="cliente_desde" type="date" defaultValue={cliente ? cliente.cliente_desde ?? "" : hojeISO()} className={classeInput} />
       </Campo>
       <fieldset className="sm:col-span-2">
         <legend className="mb-1 text-sm font-medium">Aniversário</legend>

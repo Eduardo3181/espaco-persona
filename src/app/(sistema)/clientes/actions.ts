@@ -37,7 +37,7 @@ export async function salvarCliente(_e: EstadoForm, dados: FormData): Promise<Es
     aniversario_mes: mes,
     aniversario_ano: ano,
   };
-  if (/^\d{4}-\d{2}-\d{2}$/.test(clienteDesde)) registro.cliente_desde = clienteDesde;
+  registro.cliente_desde = /^\d{4}-\d{2}-\d{2}$/.test(clienteDesde) ? clienteDesde : null;
 
   const supabase = await criarClienteServidor();
   const { data: salvo, error } = id
