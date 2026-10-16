@@ -26,7 +26,7 @@ export default async function Inicio() {
     const { count: abertas } = await supabase.from("comandas").select("id", { count: "exact", head: true }).eq("status", "aberta");
     if (abertas) avisos.push({ texto: `${abertas} comanda(s) aberta(s)`, href: "/comandas" });
     const { data: produtos } = await supabase.from("produtos").select("nome, estoque, estoque_minimo").eq("ativo", true);
-    const baixos = (produtos ?? []).filter((p) => p.estoque <= p.estoque_minimo);
+    const baixos = (produtos ?? []).filter((p) => p.estoque_minimo > 0 && p.estoque <= p.estoque_minimo);
     if (baixos.length) {
       avisos.push({
         texto: `Estoque baixo: ${baixos.map((p) => p.nome).join(", ")}`,

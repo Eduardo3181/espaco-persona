@@ -241,7 +241,7 @@ export function AbaProdutos({ dados, ehDono, editar }: PropsAba) {
           <Campo rotulo="Estoque atual">
             <input name="estoque" type="number" step={1} required defaultValue={emEdicao?.estoque ?? 0} className={classeInput} />
           </Campo>
-          <Campo rotulo="Avisar quando o estoque chegar a">
+          <Campo rotulo="Avisar quando o estoque chegar a" dica="0 = não avisar">
             <input name="estoque_minimo" type="number" min={0} step={1} required defaultValue={emEdicao?.estoque_minimo ?? 0} className={classeInput} />
           </Campo>
           <CaixaAtivo ativo={emEdicao?.ativo} />
@@ -254,7 +254,7 @@ export function AbaProdutos({ dados, ehDono, editar }: PropsAba) {
         grupos.map(({ categoria, itens }) => (
           <Grupo key={categoria.id} titulo={categoria.nome}>
             {itens.map((p) => {
-              const baixo = p.ativo && p.estoque <= p.estoque_minimo;
+              const baixo = p.ativo && p.estoque_minimo > 0 && p.estoque <= p.estoque_minimo;
               return (
                 <Linha key={p.id} inativo={!p.ativo} ehDono={ehDono} nome={p.nome} editarHref={`/servicos?aba=produtos&editar=${p.id}`}>
                   <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
