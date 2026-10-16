@@ -21,13 +21,13 @@ begin
   select id into v_eduardo from public.profissionais where papel = 'dono' limit 1;
   select id into v_cliente from public.clientes order by criado_em limit 1;
 
-  -- Login temporário (ligado à Valdete) e uma anotação do dono para os testes
+  -- Uma anotação do dono para os testes
   -- Usa o login real da profissional sob teste (só simulação; tudo é desfeito no final)
   select usuario_id into v_usuario from public.profissionais where id = v_prof;
   insert into public.anotacoes_clientes (cliente_id, autor_id, texto)
   values (v_cliente, v_eduardo, 'anotação do dono (teste)') returning id into v_anotacao_eduardo;
 
-  -- A partir daqui, age como a Valdete logada
+  -- A partir daqui, age como a Di (profissional) logada
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_usuario, 'role', 'authenticated')::text, true);
 
@@ -75,7 +75,7 @@ begin
   r := r || format(' virar dono=%s %s;', n, case when n = 0 then 'OK' else 'FALHA' end);
   if n <> 0 then falhou := true; end if;
 
-  insert into public.anotacoes_clientes (cliente_id, texto) values (v_cliente, 'anotação da Valdete (teste)');
+  insert into public.anotacoes_clientes (cliente_id, texto) values (v_cliente, 'anotação da profissional (teste)');
   r := r || ' escrever anotação OK;';
 
   begin

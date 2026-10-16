@@ -1,0 +1,241 @@
+<title>Roteiro do Primeiro Dia</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+<style>
+  /* Layout: uma coluna de leitura; cada etapa é um cartão com lista de conferência, como uma comanda de salão */
+  :root {
+    --fundo: #F7F4F2;
+    --cartao: #FFFFFF;
+    --borda: #E6DFDA;
+    --tinta: #1C1B1F;
+    --suave: #6B625E;
+    --rose: #96604A;
+    --rose-claro: #F3E3DA;
+    --escuro: #1C1B1F;
+    --sobre-escuro: #F0D3C2;
+    --ok: #2F6B3A;
+    --ok-fundo: #E3EFE5;
+    --aviso: #A87A1F;
+    --aviso-fundo: #FFF1D2;
+    --fonte-titulo: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+    --fonte-texto: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --fundo: #17161A; --cartao: #222026; --borda: #36323A; --tinta: #F3EEEB; --suave: #B5ABA6;
+      --rose: #D9A48C; --rose-claro: #3A2C27; --escuro: #0F0E11; --sobre-escuro: #F0D3C2;
+      --ok: #8FD19B; --ok-fundo: #1E3323; --aviso: #E8C170; --aviso-fundo: #3A3020; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --fundo: #17161A; --cartao: #222026; --borda: #36323A; --tinta: #F3EEEB; --suave: #B5ABA6;
+    --rose: #D9A48C; --rose-claro: #3A2C27; --escuro: #0F0E11; --sobre-escuro: #F0D3C2;
+    --ok: #8FD19B; --ok-fundo: #1E3323; --aviso: #E8C170; --aviso-fundo: #3A3020; color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { background: var(--fundo); color: var(--tinta); font-family: var(--fonte-texto); font-size: 16px; line-height: 1.55; }
+
+  header.capa { background: var(--escuro); color: var(--sobre-escuro);
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 32px; }
+  .capa .miolo, main { max-width: 720px; margin: 0 auto; }
+  .capa p.marca { margin: 0; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; opacity: .8; }
+  .capa h1 { font-family: var(--fonte-titulo); font-weight: 700; font-size: clamp(34px, 7vw, 48px); line-height: 1.05; margin: 8px 0 12px; text-wrap: balance; color: #FFFFFF; }
+  .capa p.sub { margin: 0; max-width: 60ch; color: var(--sobre-escuro); }
+  .endereco { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 20px; }
+  .endereco code { font-family: var(--fonte-texto); font-weight: 600; background: rgba(240,211,194,.12); border: 1px solid rgba(240,211,194,.3); color: #FFFFFF; padding: 8px 12px; border-radius: 8px; user-select: all; word-break: break-all; }
+  .endereco button { min-height: 44px; padding: 0 14px; border-radius: 8px; border: 0; background: #96604A; color: #FFF; font: 600 14px var(--fonte-texto); cursor: pointer; }
+
+  main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 56px; display: flex; flex-direction: column; gap: 20px; }
+
+  .progresso { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--suave); }
+  .barra { flex: 1 1 220px; height: 8px; border-radius: 99px; background: var(--borda); overflow: hidden; }
+  .barra span { display: block; height: 100%; width: 0; background: var(--rose); transition: width .3s; }
+  .progresso button { min-height: 44px; background: transparent; border: 1px solid var(--borda); color: var(--suave); border-radius: 8px; padding: 0 12px; font: 500 13px var(--fonte-texto); cursor: pointer; }
+
+  section.etapa { background: var(--cartao); border: 1px solid var(--borda); border-radius: 14px; padding: 20px; }
+  .etapa .topo { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .etapa .num { font-family: var(--fonte-titulo); font-weight: 700; font-size: 30px; color: var(--rose); line-height: 1; }
+  .etapa h2 { font-family: var(--fonte-titulo); font-weight: 700; font-size: 26px; line-height: 1.15; margin: 0; text-wrap: balance; }
+  .quem { display: inline-flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 4px; }
+  .quem span { font-size: 12px; font-weight: 600; letter-spacing: .04em; padding: 3px 10px; border-radius: 99px; background: var(--rose-claro); color: var(--rose); }
+  .etapa > p { margin: 8px 0 0; color: var(--suave); max-width: 65ch; }
+
+  ul.lista { list-style: none; padding: 0; margin: 14px 0 0; display: flex; flex-direction: column; gap: 2px; }
+  ul.lista li label { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; padding: 10px 8px; border-radius: 10px; cursor: pointer; min-height: 44px; }
+  ul.lista li label:hover { background: var(--fundo); }
+  ul.lista input { width: 22px; height: 22px; margin: 2px 0 0; accent-color: var(--rose); cursor: pointer; }
+  ul.lista input:checked + span { color: var(--suave); text-decoration: line-through; text-decoration-color: var(--borda); }
+  ul.lista span small { display: block; color: var(--suave); font-size: 13px; text-decoration: none; margin-top: 2px; }
+  ul.lista b { font-weight: 600; }
+  input:focus-visible, button:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+  .caixa { margin-top: 14px; border-radius: 10px; padding: 12px 14px; font-size: 14px; }
+  .caixa.aviso { background: var(--aviso-fundo); color: var(--aviso); }
+  .caixa.ok { background: var(--ok-fundo); color: var(--ok); }
+  .caixa strong { font-weight: 700; }
+
+  .duas { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 14px; }
+  .duas > div { min-width: 0; border: 1px solid var(--borda); border-radius: 10px; padding: 12px 14px; }
+  .duas h3 { margin: 0 0 6px; font-size: 15px; }
+  .duas ol { margin: 0; padding-left: 20px; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+
+  footer { color: var(--suave); font-size: 13px; text-align: center; padding-bottom: 8px; }
+  @media (prefers-reduced-motion: reduce) { .barra span { transition: none; } }
+</style>
+
+<header class="capa">
+  <div class="miolo">
+    <p class="marca">Espaço Persona · Hair and Beauty</p>
+    <h1>Roteiro do primeiro dia</h1>
+    <p class="sub">Um passo a passo para Eduardo, Valdete e Di colocarem o sistema para rodar e conferirem que tudo funciona. Marque cada item quando terminar.</p>
+    <div class="endereco">
+      <code id="url">https://espaco-persona.vercel.app</code>
+      <button type="button" id="copiar">Copiar endereço</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="progresso" aria-live="polite">
+    <div class="barra" aria-hidden="true"><span id="barra"></span></div>
+    <span id="contagem">0 de 0 itens</span>
+    <button type="button" id="limpar">Desmarcar tudo</button>
+  </div>
+
+  <section class="etapa">
+    <div class="topo"><span class="num">1</span><h2>Antes de abrir o salão</h2></div>
+    <div class="quem"><span>Eduardo</span></div>
+    <p>Ajustes que só o dono faz, uma vez. Sem eles as comissões saem zeradas.</p>
+    <ul class="lista">
+      <li><label><input type="checkbox" id="c-regras"><span><b>Preencher as regras de comissão</b><small>Configurações → Regras de comissão: padrão da Valdete e da Di e, se houver, por categoria. Exceções por serviço ficam no cadastro de cada serviço.</small></span></label></li>
+      <li><label><input type="checkbox" id="c-taxas"><span><b>Conferir as taxas da maquininha</b><small>Configurações: débito 1,99%, crédito 3,49%, Pix 0%. Ajuste se a sua maquininha cobra outro valor.</small></span></label></li>
+      <li><label><input type="checkbox" id="c-produtos"><span><b>Cadastrar os produtos à venda</b><small>Serviços e produtos → Produtos: preço, estoque, aviso de estoque baixo e comissão de venda (10% já vem preenchido).</small></span></label></li>
+      <li><label><input type="checkbox" id="c-mensagens"><span><b>Revisar as mensagens de WhatsApp</b><small>Configurações → Mensagens: confirmação de agendamento e aniversário.</small></span></label></li>
+    </ul>
+  </section>
+
+  <section class="etapa">
+    <div class="topo"><span class="num">2</span><h2>Primeiro acesso e app no celular</h2></div>
+    <div class="quem"><span>Valdete</span><span>Di</span><span>Eduardo</span></div>
+    <ul class="lista">
+      <li><label><input type="checkbox" id="c-entrar"><span><b>Entrar com a senha provisória</b><small>Use o e-mail cadastrado e a senha que o Eduardo passou.</small></span></label></li>
+      <li><label><input type="checkbox" id="c-senha"><span><b>Trocar a senha</b><small>Toque no seu nome no alto da tela → Alterar minha senha. Mínimo de 8 caracteres.</small></span></label></li>
+      <li><label><input type="checkbox" id="c-app"><span><b>Instalar o app na tela inicial</b><small>Veja como fazer abaixo, conforme o seu celular.</small></span></label></li>
+    </ul>
+    <div class="duas">
+      <div>
+        <h3>Android (Chrome)</h3>
+        <ol>
+          <li>Abra o endereço do sistema no Chrome.</li>
+          <li>Toque nos três pontinhos ⋮ no canto de cima.</li>
+          <li>Toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.</li>
+        </ol>
+      </div>
+      <div>
+        <h3>iPhone (Safari)</h3>
+        <ol>
+          <li>Abra o endereço do sistema no Safari.</li>
+          <li>Toque no botão Compartilhar (quadrado com seta).</li>
+          <li>Toque em <b>Adicionar à Tela de Início</b> → Adicionar.</li>
+        </ol>
+      </div>
+    </div>
+    <p class="caixa ok">O ícone do Espaço Persona aparece na tela do celular e o sistema abre em tela cheia, como um aplicativo.</p>
+  </section>
+
+  <section class="etapa">
+    <div class="topo"><span class="num">3</span><h2>Um atendimento completo</h2></div>
+    <div class="quem"><span>Todas</span></div>
+    <p>Faça com uma cliente de verdade do dia. Siga a ordem: cada passo depende do anterior.</p>
+    <ul class="lista">
+      <li><label><input type="checkbox" id="c-agendar"><span><b>Agendar</b><small>Agenda → toque num horário vazio. Busque a cliente, digite o serviço na lupa (ex.: “escova”) e salve. A Di agenda só na coluna dela.</small></span></label></li>
+      <li><label><input type="checkbox" id="c-confirmar"><span><b>Confirmar o horário</b><small>Abra o agendamento → Marcar como confirmado. Se a cliente tiver telefone, use Pedir confirmação (abre o WhatsApp).</small></span></label></li>
+      <li><label><input type="checkbox" id="c-abrir"><span><b>Abrir a comanda pela agenda</b><small>No agendamento → Abrir comanda. O horário fica lilás (em atendimento) e os serviços já entram na comanda.</small></span></label></li>
+      <li><label><input type="checkbox" id="c-lancar"><span><b>A profissional lança um item</b><small>Na comanda, a Di lança um serviço ou produto em nome dela. Ela não vê valores.</small></span></label></li>
+      <li><label><input type="checkbox" id="c-anotar"><span><b>Anotar a visita</b><small>Na comanda → Anotação desta visita (ex.: fórmula usada). Aparece no histórico da cliente.</small></span></label></li>
+      <li><label><input type="checkbox" id="c-fechar"><span><b>Fechar a comanda</b><small>Eduardo ou Valdete: confira os valores, ponha a caixinha (+R$ 10 / +R$ 20), divida o pagamento se precisar e toque em Fechar comanda.</small></span></label></li>
+      <li><label><input type="checkbox" id="c-receber"><span><b>Conferir o “a receber” de cada uma</b><small>A tela da comanda fechada mostra comissão + caixinha = valor a receber, por profissional.</small></span></label></li>
+    </ul>
+  </section>
+
+  <section class="etapa">
+    <div class="topo"><span class="num">4</span><h2>Conferir que tudo ligou</h2></div>
+    <div class="quem"><span>Eduardo</span><span>Valdete</span><span>Di</span></div>
+    <ul class="lista">
+      <li><label><input type="checkbox" id="c-agenda-cinza"><span><b>Agenda em cinza</b><small>O atendimento aparece como Concluído.</small></span></label></li>
+      <li><label><input type="checkbox" id="c-ficha"><span><b>Ficha da cliente atualizada</b><small>Clientes → abra a cliente: última visita, nº de visitas, histórico do mês e a anotação.</small></span></label></li>
+      <li><label><input type="checkbox" id="c-comissao-di"><span><b>A Di vê o próprio extrato</b><small>No Início dela aparece “Você recebe em dd/mm”, e em Comissões o extrato com o nome da cliente.</small></span></label></li>
+      <li><label><input type="checkbox" id="c-apagar"><span><b>O dono vê o “A pagar”</b><small>Comissões → A pagar: comissões + caixinhas do período de cada profissional.</small></span></label></li>
+      <li><label><input type="checkbox" id="c-relatorio"><span><b>Relatório do dia</b><small>Relatórios → Dia: vendas, comissões, taxas e o que fica para o salão.</small></span></label></li>
+    </ul>
+  </section>
+
+  <section class="etapa">
+    <div class="topo"><span class="num">5</span><h2>Conferência de segurança</h2></div>
+    <div class="quem"><span>Di</span></div>
+    <p>Feito no login da Di. Se algum item abaixo aparecer para ela, avise o Eduardo.</p>
+    <ul class="lista">
+      <li><label><input type="checkbox" id="c-s-menu"><span><b>No menu dela não aparecem</b> Relatórios, Equipe nem Configurações</span></label></li>
+      <li><label><input type="checkbox" id="c-s-agenda"><span><b>Na agenda dela aparece só a coluna da Di</b></span></label></li>
+      <li><label><input type="checkbox" id="c-s-comanda"><span><b>Na comanda não aparecem valores</b> nem pagamento</span></label></li>
+      <li><label><input type="checkbox" id="c-s-cliente"><span><b>Na ficha da cliente não aparecem</b> total gasto, saldo na casa nem valores do histórico</span></label></li>
+    </ul>
+  </section>
+
+  <section class="etapa">
+    <div class="topo"><span class="num">6</span><h2>Se algo der errado</h2></div>
+    <div class="quem"><span>Todas</span></div>
+    <ul class="lista">
+      <li><label><input type="checkbox" id="c-e-foto"><span><b>Tire uma foto da tela</b> e anote o que estava fazendo<small>Mande para o Eduardo, que repassa para ajuste.</small></span></label></li>
+      <li><label><input type="checkbox" id="c-e-reabrir"><span><b>Comanda fechada com erro?</b><small>Só o dono reabre: abra a comanda → Reabrir, com o motivo. Fica registrado quem mudou e quando.</small></span></label></li>
+      <li><label><input type="checkbox" id="c-e-senha"><span><b>Esqueceu a senha?</b><small>Na tela de login → Esqueci minha senha. Chega um e-mail com o link (confira o spam).</small></span></label></li>
+    </ul>
+    <p class="caixa aviso"><strong>Atenção:</strong> as clientes vieram do Salão Soft sem telefone. Cadastre o celular de cada uma quando ela vier, para usar a confirmação e a mensagem de aniversário pelo WhatsApp.</p>
+  </section>
+
+  <footer>Espaço Persona · roteiro de implantação · outubro de 2026</footer>
+</main>
+
+<script>
+  (function () {
+    var CHAVE = "roteiro-persona-v1";
+    var caixas = Array.prototype.slice.call(document.querySelectorAll('ul.lista input[type="checkbox"]'));
+    var marcados = {};
+    try { marcados = JSON.parse(localStorage.getItem(CHAVE) || "{}") || {}; } catch (e) { marcados = {}; }
+
+    function atualizar() {
+      var feitos = caixas.filter(function (c) { return c.checked; }).length;
+      document.getElementById("contagem").textContent = feitos + " de " + caixas.length + " itens";
+      document.getElementById("barra").style.width = (caixas.length ? (feitos / caixas.length) * 100 : 0) + "%";
+    }
+    function salvar() {
+      var estado = {};
+      caixas.forEach(function (c) { if (c.checked) estado[c.id] = true; });
+      try { localStorage.setItem(CHAVE, JSON.stringify(estado)); } catch (e) {}
+    }
+    caixas.forEach(function (c) {
+      c.checked = Boolean(marcados[c.id]);
+      c.addEventListener("change", function () { salvar(); atualizar(); });
+    });
+    document.getElementById("limpar").addEventListener("click", function () {
+      caixas.forEach(function (c) { c.checked = false; });
+      salvar(); atualizar();
+    });
+    document.getElementById("copiar").addEventListener("click", function () {
+      var botao = this;
+      var texto = document.getElementById("url").textContent;
+      function selecionar() {
+        var r = document.createRange(); r.selectNodeContents(document.getElementById("url"));
+        var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+        botao.textContent = "Selecionado — copie";
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(texto).then(function () { botao.textContent = "Copiado!"; }, selecionar);
+      } else { selecionar(); }
+      setTimeout(function () { botao.textContent = "Copiar endereço"; }, 2500);
+    });
+    atualizar();
+  })();
+</script>
