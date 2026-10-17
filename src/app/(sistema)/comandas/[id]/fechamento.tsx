@@ -64,7 +64,6 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
   const restante = totalReceber - somaFixas;
   const valores = [...fixas, Math.max(restante, 0)];
   const taxaTotal = linhas.reduce((t, l, i) => t + Math.round((valores[i] * (taxas[l.forma] ?? 0)) / 100), 0);
-  const comissoes = itens.reduce((t, i) => t + i.comissao, 0);
   const semRegra = itens.filter((i) => i.percentual === null);
   const usaSaldo = linhas.some((l, i) => l.forma === "saldo" && valores[i] > 0);
   const valorSaldo = linhas.reduce((t, l, i) => t + (l.forma === "saldo" ? valores[i] : 0), 0);
@@ -81,12 +80,6 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
     dados.set("pagamentos", JSON.stringify(linhas.map((l, i) => ({ forma: l.forma, valor_centavos: valores[i] })).filter((p) => p.valor_centavos > 0)));
     startTransition(() => (quem === "fechar" ? acaoFechar(dados) : acaoManter(dados)));
   };
-
-  // Por profissional: comissão + caixinha
-  const porProf = profissionais.map((p) => {
-    const com = itens.filter((i) => i.profissional_id === p.id).reduce((t, i) => t + i.comissao, 0);
-    return { ...p, com, cx: caixinhaCent(p.id) };
-  });
 
   return (
     <form onSubmit={enviar} className="flex flex-col gap-5">
@@ -165,21 +158,9 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
           <dt>Itens</dt><dd className="text-right">{formatarReais(totalItens)}</dd>
           <dt>Caixinhas</dt><dd className="text-right">{formatarReais(totalCaixinhas)}</dd>
           <dt className="text-suave">Taxa da maquininha (estimada)</dt><dd className="text-right text-suave">− {formatarReais(taxaTotal)}</dd>
-          <dt className="text-suave">Comissões geradas</dt><dd className="text-right text-suave">{formatarReais(comissoes)}</dd>
           <dt className="mt-2 border-t border-borda pt-2 text-base font-bold">Total a receber</dt>
           <dd className="mt-2 border-t border-borda pt-2 text-right text-base font-bold">{formatarReais(totalReceber)}</dd>
         </dl>
-        <div className="mt-3 border-t border-borda pt-3">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-suave">Cada profissional recebe</p>
-          <ul className="flex flex-col gap-1">
-            {porProf.map((p) => (
-              <li key={p.id} className="flex justify-between gap-2">
-                <span>{p.nome.split(" ")[0]}</span>
-                <span>{formatarReais(p.com)} + {formatarReais(p.cx)} = <strong>{formatarReais(p.com + p.cx)}</strong></span>
-              </li>
-            ))}
-          </ul>
-        </div>
         {semRegra.length > 0 && (
           <p className="mt-3 flex gap-2 rounded-lg bg-aguardando-fundo p-2 text-xs text-aguardando">
             <AlertTriangle size={16} className="shrink-0" aria-hidden />

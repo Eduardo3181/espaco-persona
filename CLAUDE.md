@@ -48,12 +48,11 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 ### 4.2 Comandas
 - Abertas a partir de um agendamento ou avulsas; lista de comandas abertas ao lado
 - Itens dos tipos **Serviço, Produto e Pacote**, cada um com profissional, quantidade e valor. É possível remover itens enquanto a comanda está aberta
-- Quadro **"Ficha da cliente"** no topo: cor/fórmula, cuidados/alergias, última anotação e última visita
+- ~~Quadro "Ficha da cliente" no topo~~ — retirado a pedido do dono (19/10/2026): a comanda foca em serviços e valores; ficha e anotações ficam no cadastro da cliente
 - **Caixinha** (ver regra 5.3): um campo por profissional presente na comanda, com botões rápidos +R$ 10 e +R$ 20
 - **Pagamento dividido**: várias formas (Pix, crédito, débito, dinheiro); a última linha recebe automaticamente o valor restante
-- Resumo: itens, caixinhas, taxa da maquininha, comissões geradas e **total a receber**
+- Resumo: itens, caixinhas, taxa da maquininha e **total a receber** (comissões não aparecem na comanda; ficam na tela de Comissões)
 - Botões: **Cancelar comanda**, **Manter aberta**, **Fechar comanda**
-- Ao fechar, mostrar para cada profissional: comissão + caixinha = valor a receber no próximo pagamento
 - Comanda fechada **só pode ser reaberta ou editada pelo dono**, com registro em log (quem, quando, o quê)
 
 ### 4.3 Clientes (muito importante)
@@ -173,3 +172,4 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - **PWA**: ícone do app usa só o **símbolo** do logo sobre fundo escuro; o service worker não guarda dados (só a página offline). Instalação no celular só funciona depois de publicado (https)
 - **Equipe (18/10/2026)**: Valdete passou a ter perfil **dono** e continua com comissão; Di é profissional. Ordem na agenda: Eduardo, Valdete, Di (campo "Posição na agenda" em Equipe). Os testes de segurança usam a **Di** como profissional (login real, só em simulação)
 - **Atendimento com várias profissionais (19/10/2026)**: no novo agendamento o dono pode adicionar outras profissionais, cada uma com hora e serviços próprios; os horários ficam ligados (grupo_atendimento) e geram **uma comanda só**; fechar/reabrir/cancelar atualiza todos os horários ligados
+- **Comanda enxuta (19/10/2026)**: sem quadro de ficha da cliente, sem "anotação desta visita" e sem comissões (nem no fechamento nem na comanda fechada). Mantido só o aviso de serviço sem regra de comissão

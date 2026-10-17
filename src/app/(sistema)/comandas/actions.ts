@@ -63,22 +63,6 @@ export async function removerItem(_e: EstadoForm, dados: FormData): Promise<Esta
   redirect(`/comandas/${comandaId}`);
 }
 
-export async function anotarVisita(_e: EstadoForm, dados: FormData): Promise<EstadoForm> {
-  const { profissional: eu } = await exigirEquipe();
-  const comandaId = texto(dados, "comanda_id");
-  const clienteId = texto(dados, "cliente_id");
-  const conteudo = texto(dados, "texto");
-  if (!conteudo) return { erro: "Escreva a anotação." };
-  const supabase = await criarClienteServidor();
-  const { error } = await supabase.from("anotacoes_clientes").insert({
-    cliente_id: clienteId, comanda_id: comandaId, texto: conteudo, autor_id: eu.id,
-  });
-  if (error) return { erro: "Não foi possível salvar a anotação." };
-  revalidatePath(`/clientes/${clienteId}`);
-  atualizar(comandaId);
-  redirect(`/comandas/${comandaId}`);
-}
-
 // ---------------------------------------------------------------- Só o dono
 
 export async function alterarValorItem(_e: EstadoForm, dados: FormData): Promise<EstadoForm> {

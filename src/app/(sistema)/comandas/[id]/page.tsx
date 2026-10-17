@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Trash2 } from "lucide-react";
 import { BotaoEnviar, FormAcao } from "@/components/formulario";
 import { Campo, Cartao, Etiqueta, classeInput } from "@/components/ui";
 import { SeletorCliente } from "@/components/seletor-cliente";
 import { exigirEquipe } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
-import { formatarDataHora, formatarDiaISO, formatarPercentual, formatarReais, centavosParaCampo } from "@/lib/formato";
+import { formatarDataHora, formatarPercentual, formatarReais, centavosParaCampo } from "@/lib/formato";
 import { resolverComissao, type RegraComissao } from "@/lib/comissao";
 import {
-  alterarValorItem, anotarVisita, cancelarComanda, reabrirComanda, removerItem, trocarCliente,
+  alterarValorItem, cancelarComanda, reabrirComanda, removerItem, trocarCliente,
 } from "../actions";
 import { AdicionarItem } from "./adicionar-item";
 import { Fechamento, type ItemFechamento } from "./fechamento";
@@ -51,40 +51,6 @@ async function catalogo(supabase: Supabase) {
   };
 }
 
-/** Quadro "Ficha da cliente" no topo da comanda */
-async function FichaDaCliente({ supabase, clienteId }: { supabase: Supabase; clienteId: string | null }) {
-  if (!clienteId) return null;
-  const [{ data: ficha }, { data: anot }, { data: resumo }] = await Promise.all([
-    supabase.from("fichas_tecnicas").select("cor_formula, alergias_cuidados").eq("cliente_id", clienteId).maybeSingle(),
-    supabase.from("anotacoes_clientes").select("texto, criado_em").eq("cliente_id", clienteId).order("criado_em", { ascending: false }).limit(1),
-    supabase.rpc("resumo_cliente", { p_cliente_id: clienteId }),
-  ]);
-  const ultima = anot?.[0];
-  const ultimaVisita = (resumo as { ultima_visita?: string } | null)?.ultima_visita;
-  return (
-    <section aria-label="Ficha da cliente" className="grid gap-3 rounded-xl border border-borda bg-cartao p-4 text-sm sm:grid-cols-2">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-suave">Cor / fórmula</p>
-        <p className="whitespace-pre-wrap">{ficha?.cor_formula || "—"}</p>
-      </div>
-      <div className={ficha?.alergias_cuidados ? "rounded-lg bg-aguardando-fundo p-2 text-aguardando" : ""}>
-        <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide">
-          {ficha?.alergias_cuidados && <AlertTriangle size={14} aria-hidden />} Cuidados / alergias
-        </p>
-        <p className="whitespace-pre-wrap">{ficha?.alergias_cuidados || "—"}</p>
-      </div>
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-suave">Última anotação</p>
-        <p>{ultima ? <>{ultima.texto} <span className="text-xs text-suave">({formatarDataHora(ultima.criado_em)})</span></> : "—"}</p>
-      </div>
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-suave">Última visita</p>
-        <p>{ultimaVisita ? formatarDiaISO(ultimaVisita) : "Primeira visita registrada"}</p>
-      </div>
-    </section>
-  );
-}
-
 function Cabecalho({ numero, status, clienteId, clienteNome }: { numero: number; status: string; clienteId: string | null; clienteNome: string | null }) {
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -98,21 +64,6 @@ function Cabecalho({ numero, status, clienteId, clienteNome }: { numero: number;
         {status === "aberta" ? "Aberta" : status === "fechada" ? "Fechada" : "Cancelada"}
       </Etiqueta>
     </div>
-  );
-}
-
-function AnotarVisita({ comandaId, clienteId }: { comandaId: string; clienteId: string | null }) {
-  if (!clienteId) return null;
-  return (
-    <Cartao>
-      <h3 className="mb-2 font-semibold">Anotação desta visita</h3>
-      <FormAcao acao={anotarVisita} className="flex flex-col gap-2 sm:flex-row">
-        <input type="hidden" name="comanda_id" value={comandaId} />
-        <input type="hidden" name="cliente_id" value={clienteId} />
-        <input name="texto" required placeholder="Ex.: usou 7.1 + 8.1, cliente gostou do resultado" aria-label="Anotação da visita" className={`${classeInput} flex-1`} />
-        <BotaoEnviar>Salvar</BotaoEnviar>
-      </FormAcao>
-    </Cartao>
   );
 }
 
@@ -199,7 +150,6 @@ async function ComandaDono({ id, supabase, acabouDeFechar }: { id: string; supab
             Reaberta em {formatarDataHora(c.reaberta_em)} — motivo: {c.motivo}. As alterações ficam registradas no log.
           </p>
         )}
-        <FichaDaCliente supabase={supabase} clienteId={c.cliente_id} />
 
         {aberta && !c.cliente_id && (
           <Cartao>
@@ -224,7 +174,6 @@ async function ComandaDono({ id, supabase, acabouDeFechar }: { id: string; supab
                     <span className="font-medium">{i.quantidade > 1 && `${i.quantidade}× `}{i.descricao}</span>
                     <span className="block text-xs text-suave">
                       {i.tipo === "produto" ? "Produto" : "Serviço"} · {i.profissionais?.nome}
-                      {!aberta && i.comissao_percentual !== null && ` · comissão ${formatarPercentual(Number(i.comissao_percentual))} = ${formatarReais(i.comissao_centavos ?? 0)}`}
                     </span>
                   </span>
                   {aberta ? (
@@ -259,7 +208,6 @@ async function ComandaDono({ id, supabase, acabouDeFechar }: { id: string; supab
           )}
         </Cartao>
 
-        {aberta && <AnotarVisita comandaId={c.id} clienteId={c.cliente_id} />}
 
         {/* Fechamento ou resumo */}
         {aberta ? (
@@ -287,19 +235,18 @@ async function ComandaDono({ id, supabase, acabouDeFechar }: { id: string; supab
             </FormAcao>
           </Cartao>
         ) : (
-          <ResumoFechada c={c} itens={itens} />
+          <ResumoFechada c={c} />
         )}
       </div>
     </div>
   );
 }
 
-function ResumoFechada({ c, itens }: {
+function ResumoFechada({ c }: {
   c: { id: string; status: string; fechada_em: string | null; cancelada_em: string | null; motivo: string | null;
     total_itens_centavos: number | null; total_caixinhas_centavos: number | null; total_taxas_centavos: number | null; total_comissoes_centavos: number | null;
     comanda_caixinhas: { profissional_id: string; valor_centavos: number }[];
     comanda_pagamentos: { ordem: number; forma: string; valor_centavos: number; taxa_percentual: number | null; taxa_centavos: number | null }[] };
-  itens: ItemDono[];
 }) {
   if (c.status === "cancelada") {
     return (
@@ -308,13 +255,10 @@ function ResumoFechada({ c, itens }: {
       </Cartao>
     );
   }
-  const profs = [...new Map(itens.map((i) => [i.profissional_id, i.profissionais?.nome ?? ""])).entries()];
-  const caixinha = (id: string) => c.comanda_caixinhas.find((x) => x.profissional_id === id)?.valor_centavos ?? 0;
-  const comissao = (id: string) => itens.filter((i) => i.profissional_id === id).reduce((t, i) => t + (i.comissao_centavos ?? 0), 0);
   const recebido = (c.total_itens_centavos ?? 0) + (c.total_caixinhas_centavos ?? 0);
 
   return (
-    <div className="grid gap-5 md:grid-cols-2">
+    <div className="flex flex-col gap-5">
       <Cartao>
         <h3 className="mb-2 font-semibold">Pagamento</h3>
         <ul className="mb-3 flex flex-col gap-1 text-sm">
@@ -329,23 +273,11 @@ function ResumoFechada({ c, itens }: {
           <dt>Itens (faturamento)</dt><dd className="text-right">{formatarReais(c.total_itens_centavos ?? 0)}</dd>
           <dt>Caixinhas (repasse)</dt><dd className="text-right">{formatarReais(c.total_caixinhas_centavos ?? 0)}</dd>
           <dt className="text-suave">Taxas da maquininha</dt><dd className="text-right text-suave">− {formatarReais(c.total_taxas_centavos ?? 0)}</dd>
-          <dt className="text-suave">Comissões</dt><dd className="text-right text-suave">− {formatarReais(c.total_comissoes_centavos ?? 0)}</dd>
           <dt className="font-bold">Total recebido</dt><dd className="text-right font-bold">{formatarReais(recebido)}</dd>
         </dl>
         <p className="mt-2 text-xs text-suave">Fechada em {c.fechada_em && formatarDataHora(c.fechada_em)}.</p>
       </Cartao>
       <Cartao>
-        <h3 className="mb-2 font-semibold">A receber no próximo pagamento</h3>
-        <ul className="flex flex-col gap-2 text-sm">
-          {profs.map(([id, nome]) => (
-            <li key={id} className="rounded-lg bg-fundo p-3">
-              <p className="font-semibold">{nome}</p>
-              <p>Comissão {formatarReais(comissao(id))} + caixinha {formatarReais(caixinha(id))} = <strong>{formatarReais(comissao(id) + caixinha(id))}</strong></p>
-            </li>
-          ))}
-        </ul>
-      </Cartao>
-      <Cartao className="md:col-span-2">
         <h3 className="mb-1 font-semibold">Reabrir comanda</h3>
         <p className="mb-3 text-xs text-suave">Desfaz comissões, caixinhas, baixa de estoque e uso de saldo desta comanda. Fica registrado no log.</p>
         <FormAcao acao={reabrirComanda} className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -383,7 +315,6 @@ async function ComandaEquipe({ id, supabase, euId }: { id: string; supabase: Sup
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
       <Cabecalho numero={c.numero} status={c.status} clienteId={c.cliente_id} clienteNome={c.cliente_nome} />
-      <FichaDaCliente supabase={supabase} clienteId={c.cliente_id} />
       <Cartao className="flex flex-col gap-3">
         <h3 className="font-semibold">Itens</h3>
         {c.itens.length === 0 ? (
@@ -413,7 +344,6 @@ async function ComandaEquipe({ id, supabase, euId }: { id: string; supabase: Sup
           profissionais={[]} podeEscolherProf={false} profPadrao={euId} />
         <p className="text-xs text-suave">Os itens entram em seu nome. Valores e fechamento ficam com a recepção.</p>
       </Cartao>
-      <AnotarVisita comandaId={c.id} clienteId={c.cliente_id} />
     </div>
   );
 }
