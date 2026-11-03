@@ -40,6 +40,33 @@ export function somarDias(data: string, dias: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Soma meses a uma data; se o mês não tiver o dia (ex.: 31), usa o último dia do mês */
+export function somarMeses(data: string, meses: number): string {
+  const [a, m, d] = data.split("-").map(Number);
+  const alvo = new Date(Date.UTC(a, m - 1 + meses, 1));
+  const ultimoDia = new Date(Date.UTC(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, 0)).getUTCDate();
+  alvo.setUTCDate(Math.min(d, ultimoDia));
+  return alvo.toISOString().slice(0, 10);
+}
+
+export type Recorrencia = "semanal" | "quinzenal" | "mensal";
+export const RECORRENCIAS: Recorrencia[] = ["semanal", "quinzenal", "mensal"];
+
+/** Todas as datas de uma recorrência, da primeira até "ate" (inclusive) */
+export function datasDaRecorrencia(data: string, recorrencia: Recorrencia, ate: string): string[] {
+  const datas: string[] = [];
+  for (let i = 0; ; i++) {
+    const d = recorrencia === "mensal" ? somarMeses(data, i) : somarDias(data, i * (recorrencia === "semanal" ? 7 : 14));
+    if (d > ate) return datas;
+    datas.push(d);
+  }
+}
+
+/** "2026-11-10" → "10/11" */
+export function diaMes(data: string): string {
+  return data.split("-").reverse().slice(0, 2).join("/");
+}
+
 /** 0 = domingo … 6 = sábado */
 export function diaDaSemana(data: string): number {
   return new Date(`${data}T12:00:00Z`).getUTCDay();

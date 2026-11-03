@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarClock, Lock, MessageCircle, Pencil, Receipt, Trash2, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarClock, Lock, MessageCircle, Pencil, Receipt, Repeat, Trash2, UserRound } from "lucide-react";
 import { BotaoEnviar, FormAcao } from "@/components/formulario";
 import { BotaoLink, Cartao } from "@/components/ui";
 import { exigirEquipe } from "@/lib/sessao";
@@ -9,6 +9,8 @@ import { criarClienteServidor } from "@/lib/supabase/server";
 import { formatarDuracao, formatarTelefone, linkWhatsApp } from "@/lib/formato";
 import { STATUS, dataPorExtenso, partesSP, type StatusAgendamento } from "@/lib/agenda";
 import { excluirAgendamento, excluirBloqueio, mudarStatus } from "../actions";
+import { horariosAbertosDaSerie } from "../dados";
+import { PerguntaSerie } from "./pergunta-serie";
 import { abrirComanda } from "../../comandas/actions";
 import { obterConfigEquipe, preencherMensagem } from "@/lib/config";
 
@@ -100,6 +102,10 @@ export default async function DetalheAgendamento({ params }: PageProps<"/agenda/
     );
   }
 
+  // Agendamento recorrente: quantos horários ainda seriam afetados por "todos"
+  const horariosDaSerie = a.grupo_repeticao ? (await horariosAbertosDaSerie(supabase, a.grupo_repeticao, a.id)).length : 0;
+  const emSerie = Boolean(a.grupo_repeticao);
+
   const primeiroNome = a.clientes?.nome.split(" ")[0] ?? "";
   const [, mm, dd] = ini.data.split("-");
   const { msgConfirmacao: modelo } = await obterConfigEquipe();
@@ -138,6 +144,12 @@ export default async function DetalheAgendamento({ params }: PageProps<"/agenda/
             <ul>{servicos.map((s) => <li key={s.ordem}>{s.servicos?.nome} <span className="text-suave">· {formatarDuracao(s.duracao_min)}</span></li>)}</ul>
           </dd>
           {a.observacao && <><dt className="text-suave">Observação</dt><dd>{a.observacao}</dd></>}
+          {emSerie && (
+            <>
+              <dt className="text-suave">Recorrência</dt>
+              <dd className="flex items-center gap-1"><Repeat size={14} aria-hidden /> Faz parte de uma recorrência · {horariosDaSerie} ainda por vir</dd>
+            </>
+          )}
           {a.grupo_atendimento && (
             <>
               <dt className="text-suave">Junto com</dt>
@@ -200,7 +212,12 @@ export default async function DetalheAgendamento({ params }: PageProps<"/agenda/
 
         {editavel && !desmarcado && (
           <div className="flex flex-wrap gap-2 border-t border-borda pt-4">
-            <BotaoStatus id={a.id} status="cancelado" rotulo="Cliente cancelou" variante="perigo" confirmar="Marcar que a cliente cancelou? O horário fica livre." />
+            {emSerie ? (
+              <PerguntaSerie acao={mudarStatus} id={a.id} campos={{ status: "cancelado" }} rotulo="Cliente cancelou" variante="perigo"
+                pergunta="A cliente cancelou só este agendamento ou todos?" qtdTodos={horariosDaSerie} />
+            ) : (
+              <BotaoStatus id={a.id} status="cancelado" rotulo="Cliente cancelou" variante="perigo" confirmar="Marcar que a cliente cancelou? O horário fica livre." />
+            )}
             <BotaoStatus id={a.id} status="faltou" rotulo="Cliente faltou" variante="perigo" confirmar="Marcar que a cliente faltou sem avisar? O horário fica livre." />
           </div>
         )}
@@ -211,10 +228,16 @@ export default async function DetalheAgendamento({ params }: PageProps<"/agenda/
             <p className="mb-2 text-xs text-suave">
               <CalendarClock size={12} className="inline" aria-hidden /> Use “excluir” só para agendamentos lançados por engano — para cancelamentos, use os botões acima (fica no histórico da cliente).
             </p>
-            <BotaoEnviar variante="fantasma" pendente="Excluindo…" confirmar="Excluir este agendamento de vez? Ele não fica no histórico.">
-              <Trash2 size={16} aria-hidden /> Excluir (lançado por engano)
-            </BotaoEnviar>
+            {!emSerie && (
+              <BotaoEnviar variante="fantasma" pendente="Excluindo…" confirmar="Excluir este agendamento de vez? Ele não fica no histórico.">
+                <Trash2 size={16} aria-hidden /> Excluir (lançado por engano)
+              </BotaoEnviar>
+            )}
           </FormAcao>
+        )}
+        {editavel && emSerie && (
+          <PerguntaSerie acao={excluirAgendamento} id={a.id} rotulo="Excluir (lançado por engano)" variante="fantasma"
+            pergunta="Excluir de vez só este agendamento ou todos? Eles não ficam no histórico." qtdTodos={horariosDaSerie} />
         )}
       </Cartao>
     </div>

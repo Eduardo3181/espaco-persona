@@ -5,7 +5,7 @@ import { exigirEquipe } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import { partesSP } from "@/lib/agenda";
 import { FormAgendamento } from "../../form-agendamento";
-import { profissionaisDaAgenda, servicosParaAgenda } from "../../dados";
+import { horariosAbertosDaSerie, profissionaisDaAgenda, servicosParaAgenda } from "../../dados";
 
 export const metadata: Metadata = { title: "Remarcar agendamento" };
 
@@ -15,7 +15,7 @@ export default async function EditarAgendamento({ params }: PageProps<"/agenda/[
   const supabase = await criarClienteServidor();
   const { data: a } = await supabase
     .from("agendamentos")
-    .select("id, tipo, profissional_id, inicio, fim, status, observacao, clientes(id, nome, telefone), agendamento_servicos(ordem, servico_id)")
+    .select("id, tipo, profissional_id, inicio, fim, status, observacao, grupo_repeticao, clientes(id, nome, telefone), agendamento_servicos(ordem, servico_id)")
     .eq("id", id)
     .maybeSingle();
   if (!a) notFound();
@@ -26,6 +26,9 @@ export default async function EditarAgendamento({ params }: PageProps<"/agenda/[
     profissionaisDaAgenda(supabase, eu),
     servicosParaAgenda(supabase, servicosAg),
   ]);
+  const horariosDaSerie = a.grupo_repeticao
+    ? (await horariosAbertosDaSerie(supabase, a.grupo_repeticao, a.id, a.profissional_id)).length
+    : undefined;
   const ini = partesSP(a.inicio);
   const duracao = Math.round((new Date(a.fim).getTime() - new Date(a.inicio).getTime()) / 60000);
 
@@ -45,6 +48,7 @@ export default async function EditarAgendamento({ params }: PageProps<"/agenda/[
           servicos: servicosAg,
           duracao,
           observacao: a.observacao ?? "",
+          horariosDaSerie,
         }}
         voltarHref={`/agenda/${a.id}`}
       />

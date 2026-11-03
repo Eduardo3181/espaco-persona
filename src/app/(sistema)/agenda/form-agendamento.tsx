@@ -6,6 +6,7 @@ import { Link2, Plus, Search, UserPlus, X } from "lucide-react";
 import { classeBotao, classeInput } from "@/components/ui";
 import { BuscaItem, type OpcaoBusca } from "@/components/busca-item";
 import { formatarDuracao, formatarReais, formatarTelefone } from "@/lib/formato";
+import { dataValida, datasDaRecorrencia, diaMes, somarDias, somarMeses, type Recorrencia } from "@/lib/agenda";
 import { buscarClientes, salvarAgendamento } from "./actions";
 
 type Servico = { id: string; nome: string; duracao_min: number; preco_centavos: number; categoria: string };
@@ -20,7 +21,16 @@ export type InicialAgendamento = {
   servicos: string[];
   duracao?: number;
   observacao?: string;
+  /** Faz parte de uma recorrência: quantos horários mudariam em "todos" */
+  horariosDaSerie?: number;
 };
+
+const OPCOES_RECORRENCIA: { valor: Recorrencia | ""; rotulo: string }[] = [
+  { valor: "", rotulo: "Não, agendar apenas uma vez" },
+  { valor: "semanal", rotulo: "Sim, ocorrendo toda semana" },
+  { valor: "quinzenal", rotulo: "Sim, ocorrendo a cada 15 dias" },
+  { valor: "mensal", rotulo: "Sim, ocorrendo todo mês" },
+];
 
 /** Parte do atendimento feita por uma profissional (com hora e serviços próprios). */
 type Bloco = { chave: number; profissional_id: string; hora: string; servicos: string[]; duracaoManual: number | null };
@@ -41,7 +51,13 @@ export function FormAgendamento({ profissionais, podeEscolherProf, servicos, ini
     { chave: 0, profissional_id: inicial.profissional_id, hora: inicial.hora, servicos: inicial.servicos, duracaoManual: inicial.duracao ?? null },
   ]);
 
+  const [data, setData] = useState(inicial.data);
+  const [recorrencia, setRecorrencia] = useState<Recorrencia | "">("");
+  const [ateEscolhido, setAteEscolhido] = useState<string | null>(null);
+
   const editando = Boolean(inicial.id);
+  const repetirAte = ateEscolhido ?? (dataValida(data) ? somarMeses(data, 3) : "");
+  const datasPrevistas = recorrencia && dataValida(data) && dataValida(repetirAte) ? datasDaRecorrencia(data, recorrencia, repetirAte) : [];
   const podeVarias = podeEscolherProf && !editando;
   const porId = useMemo(() => new Map(servicos.map((s) => [s.id, s])), [servicos]);
   const opcoesServico = useMemo<OpcaoBusca[]>(
@@ -131,7 +147,7 @@ export function FormAgendamento({ profissionais, podeEscolherProf, servicos, ini
 
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium">Data</span>
-        <input name="data" type="date" required defaultValue={inicial.data} className={classeInput} />
+        <input name="data" type="date" required value={data} onChange={(e) => setData(e.target.value)} className={classeInput} />
       </label>
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium">Observação (opcional)</span>
@@ -221,6 +237,53 @@ export function FormAgendamento({ profissionais, podeEscolherProf, servicos, ini
           </button>
         )}
       </div>
+
+      {!editando && (
+        <fieldset className="flex flex-col gap-3 rounded-xl border border-borda p-4 sm:col-span-2">
+          <legend className="px-1 text-sm font-semibold">Recorrência</legend>
+          <p className="text-sm">Deseja tornar o agendamento recorrente?</p>
+          <div className="flex flex-col">
+            {OPCOES_RECORRENCIA.map((o) => (
+              <label key={o.valor} className="flex min-h-11 items-center gap-3 text-sm">
+                <input type="radio" name="recorrencia" value={o.valor} checked={recorrencia === o.valor}
+                  onChange={() => setRecorrencia(o.valor)} className="size-5 accent-rose" />
+                {o.rotulo}
+              </label>
+            ))}
+          </div>
+          {recorrencia && (
+            <div className="flex flex-col gap-1 border-t border-borda pt-3 text-sm">
+              <label className="flex flex-col gap-1">
+                <span className="font-medium">Repetir até</span>
+                <input name="repetir_ate" type="date" required value={repetirAte} min={dataValida(data) ? somarDias(data, 1) : undefined}
+                  max={dataValida(data) ? somarMeses(data, 12) : undefined} onChange={(e) => setAteEscolhido(e.target.value)}
+                  className={`${classeInput.replace("w-full ", "")} w-48`} />
+              </label>
+              {datasPrevistas.length > 1 && (
+                <span className="text-xs text-suave">
+                  Serão até {datasPrevistas.length} agendamentos, de {diaMes(datasPrevistas[0])} a {diaMes(datasPrevistas[datasPrevistas.length - 1])}.
+                  Datas com o horário ocupado ficam de fora e você recebe um aviso.
+                </span>
+              )}
+            </div>
+          )}
+        </fieldset>
+      )}
+
+      {editando && inicial.horariosDaSerie !== undefined && (
+        <fieldset className="flex flex-col gap-1 rounded-xl border border-rose-claro p-4 sm:col-span-2">
+          <legend className="px-1 text-sm font-semibold">Recorrência</legend>
+          <p className="text-sm">Este agendamento faz parte de uma recorrência. A alteração vale para:</p>
+          <label className="flex min-h-11 items-center gap-3 text-sm">
+            <input type="radio" name="escopo" value="este" required className="size-5 accent-rose" /> Só este agendamento
+          </label>
+          <label className="flex min-h-11 items-center gap-3 text-sm">
+            <input type="radio" name="escopo" value="todos" required className="size-5 accent-rose" />
+            Todos os agendamentos ({inicial.horariosDaSerie} ainda por vir)
+          </label>
+          <span className="text-xs text-suave">Os que já foram atendidos ou desmarcados não mudam. Se a data mudar, todos andam a mesma quantidade de dias.</span>
+        </fieldset>
+      )}
 
       <div className="flex gap-3 sm:col-span-2">
         <BotaoEnviar pendenteExterno={pendente}>Salvar agendamento</BotaoEnviar>

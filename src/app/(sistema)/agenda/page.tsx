@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Link2, Lock, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Link2, Lock, Plus, Repeat } from "lucide-react";
 import { BotaoLink } from "@/components/ui";
 import { exigirEquipe } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import { hojeISO } from "@/lib/formato";
 import {
-  HORA_ABRE, HORA_FECHA, SLOT_MIN, STATUS, dataPorExtenso, dataValida, horariosDaGrade, paraTimestamp, partesSP, somarDias,
+  HORA_ABRE, HORA_FECHA, SLOT_MIN, STATUS, dataPorExtenso, dataValida, diaMes, horariosDaGrade, paraTimestamp, partesSP, somarDias,
   type StatusAgendamento,
 } from "@/lib/agenda";
 import { MiniCalendario } from "./mini-calendario";
@@ -25,6 +25,7 @@ type Agendamento = {
   status: StatusAgendamento;
   motivo: string | null;
   grupo_atendimento: string | null;
+  grupo_repeticao: string | null;
   clientes: { nome: string } | null;
   agendamento_servicos: { ordem: number; servicos: { nome: string } | null }[];
 };
@@ -44,7 +45,7 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
       : supabase.from("profissionais").select("id, nome, cor").eq("id", eu.id),
     supabase
       .from("agendamentos")
-      .select("id, tipo, profissional_id, inicio, fim, status, motivo, grupo_atendimento, clientes(nome), agendamento_servicos(ordem, servicos(nome))")
+      .select("id, tipo, profissional_id, inicio, fim, status, motivo, grupo_atendimento, grupo_repeticao, clientes(nome), agendamento_servicos(ordem, servicos(nome))")
       .gte("inicio", paraTimestamp(data, "00:00"))
       .lt("inicio", paraTimestamp(somarDias(data, 1), "00:00"))
       .order("inicio"),
@@ -63,6 +64,11 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
     if (prof) u.set("prof", prof);
     return `/agenda?${u}`;
   };
+
+  // Resultado de uma ação na recorrência (criar ou alterar várias datas)
+  const avisoSerie = (sp.serie === "criados" || sp.serie === "alterados") && typeof sp.qtd === "string" && /^\d+$/.test(sp.qtd)
+    ? { acao: sp.serie, qtd: Number(sp.qtd), puladas: typeof sp.puladas === "string" ? sp.puladas.split(",").filter(dataValida) : [] }
+    : null;
 
   const horarios = horariosDaGrade();
   const agora = partesSP(new Date());
@@ -92,6 +98,19 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
       </aside>
 
       <section className="min-w-0 flex-1">
+        {avisoSerie && (
+          <div role="status" className="mb-3 rounded-xl border border-borda bg-cartao p-3 text-sm">
+            <p className="flex items-center gap-2 font-semibold text-sucesso">
+              <Repeat size={16} aria-hidden /> {avisoSerie.qtd} agendamento{avisoSerie.qtd === 1 ? "" : "s"} {avisoSerie.acao === "criados" ? "criado" : "alterado"}{avisoSerie.qtd === 1 ? "" : "s"} na recorrência.
+            </p>
+            {avisoSerie.puladas.length > 0 && (
+              <p className="mt-1 text-erro">
+                {avisoSerie.acao === "criados" ? "Não agendado" : "Não alterado"}, horário ocupado: {avisoSerie.puladas.map(diaMes).join(", ")}.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Navegação do dia */}
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <Link href={href({ data: somarDias(data, -1) })} className="flex size-11 items-center justify-center rounded-lg border border-borda bg-cartao hover:border-rose-claro" aria-label="Dia anterior">
@@ -174,6 +193,7 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
                         ) : (
                           <>
                             {a.grupo_atendimento && <Link2 size={11} className="mr-0.5 inline text-atendimento" aria-label="Atendimento com outra profissional" />}
+                            {a.grupo_repeticao && <Repeat size={11} className="mr-0.5 inline text-rose" aria-label="Agendamento recorrente" />}
                             <span className={`font-semibold ${st.texto}`}>{a.clientes?.nome}</span>
                             <span className="block truncate text-texto/80">{nomesServicos(a)}</span>
                           </>

@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { exigirEquipe } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import { normalizarTelefone } from "@/lib/formato";
-import { dataValida, paraTimestamp, partesSP, somarDias, type StatusAgendamento } from "@/lib/agenda";
+import { RECORRENCIAS, dataValida, datasDaRecorrencia, paraTimestamp, partesSP, somarDias, somarMeses, type Recorrencia, type StatusAgendamento } from "@/lib/agenda";
+import { horariosAbertosDaSerie } from "./dados";
 import type { EstadoForm } from "@/components/formulario";
 
 const texto = (d: FormData, campo: string) => String(d.get(campo) ?? "").trim();
@@ -29,6 +30,30 @@ async function descreverConflito(supabase: Supabase, profissionalId: string, ini
   if (!c) return "Horário ocupado para esta profissional.";
   const quem = c.tipo === "bloqueio" ? `bloqueio (${c.motivo || "sem motivo"})` : c.clientes?.nome ?? "outro agendamento";
   return `Horário ocupado: ${quem} das ${partesSP(c.inicio).hora} às ${partesSP(c.fim).hora}.`;
+}
+
+/** Períodos já ocupados na agenda da profissional, para conferir várias datas de uma vez. */
+async function ocupadosNoPeriodo(supabase: Supabase, profissionalId: string, inicio: string, fim: string, ignorarIds: string[] = []) {
+  const { data } = await supabase
+    .from("agendamentos")
+    .select("id, inicio, fim")
+    .eq("profissional_id", profissionalId)
+    .not("status", "in", "(cancelado,faltou)")
+    .lt("inicio", fim)
+    .gt("fim", inicio);
+  return (data ?? []).filter((o) => !ignorarIds.includes(o.id));
+}
+
+const sobrepoe = (a: { inicio: string; fim: string }, b: { inicio: string; fim: string }) =>
+  new Date(a.inicio) < new Date(b.fim) && new Date(b.inicio) < new Date(a.fim);
+
+const ERRO_HORARIO_OCUPADO = "Um dos horários acabou de ser ocupado. Confira a agenda e tente de novo.";
+
+/** Volta para a agenda mostrando o resultado de uma ação na recorrência. */
+function agendaComAviso(data: string, profissionalId: string, acao: "criados" | "alterados", qtd: number, puladas: string[]) {
+  const u = new URLSearchParams({ data, prof: profissionalId, serie: acao, qtd: String(qtd) });
+  if (puladas.length) u.set("puladas", puladas.join(","));
+  return `/agenda?${u}`;
 }
 
 // ---------------------------------------------------------------- Busca de clientes (autocompletar)
@@ -56,6 +81,9 @@ export async function salvarAgendamento(_e: EstadoForm, dados: FormData): Promis
   const novoTelefone = normalizarTelefone(texto(dados, "novo_cliente_telefone"));
   const data = texto(dados, "data");
   const observacao = texto(dados, "observacao");
+  const recorrencia = id ? "" : texto(dados, "recorrencia");
+  const repetirAte = texto(dados, "repetir_ate");
+  const escopo = texto(dados, "escopo");
 
   type BlocoForm = { profissional_id: string; hora: string; servicos: string[]; duracao: number };
   let blocosBrutos: BlocoForm[];
@@ -91,8 +119,28 @@ export async function salvarAgendamento(_e: EstadoForm, dados: FormData): Promis
 
   const supabase = await criarClienteServidor();
 
-  // Confere os horários antes de criar uma cliente nova
-  for (const p of periodos) {
+  // Datas da recorrência (novo agendamento)
+  let datasSerie: string[] = [];
+  if (recorrencia) {
+    if (!RECORRENCIAS.includes(recorrencia as Recorrencia)) return { erro: "Recorrência inválida." };
+    if (!dataValida(repetirAte) || repetirAte <= data) return { erro: "Informe até quando repetir (data depois do primeiro dia)." };
+    if (repetirAte > somarMeses(data, 12)) return { erro: "A recorrência pode ir até 1 ano à frente." };
+    datasSerie = datasDaRecorrencia(data, recorrencia as Recorrencia, repetirAte);
+    if (datasSerie.length < 2) return { erro: "Até essa data não há outra repetição. Escolha uma data mais longe." };
+  }
+
+  // Alterar um horário de recorrência: é preciso dizer se vale só para ele ou para todos
+  const { data: atual } = id
+    ? await supabase.from("agendamentos").select("inicio, profissional_id, grupo_repeticao").eq("id", id).maybeSingle()
+    : { data: null };
+  if (id && !atual) return { erro: "Agendamento não encontrado." };
+  if (atual?.grupo_repeticao && escopo !== "este" && escopo !== "todos") {
+    return { erro: "Escolha se a alteração vale só para este agendamento ou para todos." };
+  }
+  const alterarTodos = Boolean(atual?.grupo_repeticao && escopo === "todos");
+
+  // Confere os horários antes de criar uma cliente nova (recorrências conferem data por data, mais abaixo)
+  for (const p of recorrencia || alterarTodos ? [] : periodos) {
     const { count } = await supabase
       .from("agendamentos")
       .select("id", { count: "exact", head: true })
@@ -104,6 +152,30 @@ export async function salvarAgendamento(_e: EstadoForm, dados: FormData): Promis
     if (count) return { erro: await descreverConflito(supabase, p.profissional_id, p.inicio, p.fim, id ?? undefined) };
   }
 
+  // Novo agendamento recorrente: datas com horário ocupado ficam de fora e são avisadas
+  type Bloco = { profissional_id: string; inicio: string; duracao_min: number; servicos: string[] };
+  const datasLivres: { data: string; blocos: Bloco[] }[] = [];
+  const puladas: string[] = [];
+  if (recorrencia) {
+    const ultimoDia = paraTimestamp(somarDias(datasSerie[datasSerie.length - 1], 2), "00:00");
+    const ocupados = new Map<string, { inicio: string; fim: string }[]>();
+    for (const profId of new Set(blocos.map((b) => b.profissional_id))) {
+      ocupados.set(profId, await ocupadosNoPeriodo(supabase, profId, paraTimestamp(data, "00:00"), ultimoDia));
+    }
+    for (const d of datasSerie) {
+      const blocosDia = blocos.map((b) => ({
+        profissional_id: b.profissional_id, inicio: paraTimestamp(d, b.hora), duracao_min: b.duracao, servicos: b.servicos,
+      }));
+      const ocupada = blocosDia.some((b) => {
+        const fim = new Date(new Date(b.inicio).getTime() + b.duracao_min * 60000).toISOString();
+        return ocupados.get(b.profissional_id)!.some((o) => sobrepoe(o, { inicio: b.inicio, fim }));
+      });
+      if (ocupada) puladas.push(d);
+      else datasLivres.push({ data: d, blocos: blocosDia });
+    }
+    if (!datasLivres.length) return { erro: "O horário está ocupado em todas as datas da recorrência." };
+  }
+
   if (!clienteId) {
     const { data: nova, error } = await supabase
       .from("clientes")
@@ -112,6 +184,67 @@ export async function salvarAgendamento(_e: EstadoForm, dados: FormData): Promis
       .single();
     if (error || !nova) return { erro: "Não foi possível cadastrar a nova cliente." };
     clienteId = nova.id;
+  }
+
+  if (recorrencia) {
+    const { error } = await supabase.rpc("criar_atendimentos_recorrentes", {
+      p_cliente_id: clienteId, p_observacao: observacao, p_datas: datasLivres.map((d) => d.blocos),
+    });
+    if (error) {
+      if (error.code === "23P01") return { erro: ERRO_HORARIO_OCUPADO };
+      if (error.code === "P0001") return { erro: error.message };
+      return { erro: "Não foi possível salvar a recorrência." };
+    }
+    revalidatePath("/agenda");
+    redirect(agendaComAviso(datasLivres[0].data, periodos[0].profissional_id, "criados", datasLivres.length, puladas));
+  }
+
+  // Alterar todos: os horários andam juntos, na mesma diferença de dias
+  if (alterarTodos && id && atual?.grupo_repeticao) {
+    const novo = periodos[0];
+    const diasDeDiferenca = Math.round(
+      (new Date(`${data}T12:00:00Z`).getTime() - new Date(`${partesSP(atual.inicio).data}T12:00:00Z`).getTime()) / 86400000,
+    );
+    const horarios = await horariosAbertosDaSerie(supabase, atual.grupo_repeticao, id, atual.profissional_id);
+    const hora = blocos[0].hora;
+    const planejados = horarios.map((h) => {
+      const inicio = paraTimestamp(somarDias(partesSP(h.inicio).data, diasDeDiferenca), hora);
+      return { id: h.id, atual: h, inicio, fim: new Date(new Date(inicio).getTime() + novo.duracao * 60000).toISOString() };
+    });
+
+    // Quem não pode mudar fica onde está; isso pode ocupar o lugar de outro, então confere até estabilizar
+    const instantes = [...planejados, ...horarios].flatMap((p) => [new Date(p.inicio).getTime(), new Date(p.fim).getTime()]);
+    const externos = await ocupadosNoPeriodo(
+      supabase, novo.profissional_id, new Date(Math.min(...instantes)).toISOString(), new Date(Math.max(...instantes)).toISOString(), horarios.map((h) => h.id),
+    );
+    const movendo = new Set(planejados.map((p) => p.id));
+    for (let mudou = true; mudou;) {
+      mudou = false;
+      const parados = planejados.filter((p) => !movendo.has(p.id)).map((p) => p.atual);
+      // Horários parados só atrapalham se continuam na agenda da mesma profissional
+      const barreiras = novo.profissional_id === atual.profissional_id ? [...externos, ...parados] : externos;
+      for (const p of planejados) {
+        if (movendo.has(p.id) && barreiras.some((b) => sobrepoe(b, p))) { movendo.delete(p.id); mudou = true; }
+      }
+    }
+    if (!movendo.has(id)) return { erro: await descreverConflito(supabase, novo.profissional_id, planejados.find((p) => p.id === id)!.inicio, planejados.find((p) => p.id === id)!.fim, id) };
+
+    const paraMover = planejados.filter((p) => movendo.has(p.id));
+    // Andando para a frente, grava primeiro os últimos (assim um não esbarra no outro)
+    paraMover.sort((a, b) => (diasDeDiferenca > 0 ? b.inicio.localeCompare(a.inicio) : a.inicio.localeCompare(b.inicio)));
+    const { error } = await supabase.rpc("alterar_agendamentos_serie", {
+      p_profissional_id: novo.profissional_id, p_cliente_id: clienteId, p_duracao_min: novo.duracao,
+      p_servicos: novo.servicos, p_observacao: observacao,
+      p_itens: paraMover.map((p) => ({ id: p.id, inicio: p.inicio })),
+    });
+    if (error) {
+      if (error.code === "23P01") return { erro: ERRO_HORARIO_OCUPADO };
+      if (error.code === "P0001") return { erro: error.message };
+      return { erro: "Não foi possível alterar os agendamentos." };
+    }
+    revalidatePath("/agenda");
+    const ficaram = planejados.filter((p) => !movendo.has(p.id)).map((p) => partesSP(p.atual.inicio).data);
+    redirect(agendaComAviso(data, novo.profissional_id, "alterados", paraMover.length, ficaram));
   }
 
   const { error } = id
@@ -125,7 +258,7 @@ export async function salvarAgendamento(_e: EstadoForm, dados: FormData): Promis
         p_blocos: periodos.map((p) => ({ profissional_id: p.profissional_id, inicio: p.inicio, duracao_min: p.duracao, servicos: p.servicos })),
       });
   if (error) {
-    if (error.code === "23P01") return { erro: "Um dos horários acabou de ser ocupado. Confira a agenda e tente de novo." };
+    if (error.code === "23P01") return { erro: ERRO_HORARIO_OCUPADO };
     if (error.code === "P0001") return { erro: error.message };
     return { erro: "Não foi possível salvar o agendamento." };
   }
@@ -143,10 +276,15 @@ export async function mudarStatus(_e: EstadoForm, dados: FormData): Promise<Esta
   if (!STATUS_PERMITIDOS.includes(status)) return { erro: "Status inválido." };
 
   const supabase = await criarClienteServidor();
-  const { data: atual } = await supabase.from("agendamentos").select("profissional_id, inicio, fim").eq("id", id).maybeSingle();
+  const { data: atual } = await supabase.from("agendamentos").select("profissional_id, inicio, fim, grupo_repeticao").eq("id", id).maybeSingle();
   if (!atual) return { erro: "Agendamento não encontrado." };
 
-  const { error } = await supabase.from("agendamentos").update({ status }).eq("id", id);
+  // "Todos" vale para a cliente que cancelou a recorrência inteira
+  const ids = texto(dados, "escopo") === "todos" && status === "cancelado" && atual.grupo_repeticao
+    ? (await horariosAbertosDaSerie(supabase, atual.grupo_repeticao, id)).map((h) => h.id)
+    : [id];
+
+  const { error } = await supabase.from("agendamentos").update({ status }).in("id", ids);
   if (error) {
     if (error.code === "23P01") {
       return { erro: `Não dá para reativar: ${(await descreverConflito(supabase, atual.profissional_id, atual.inicio, atual.fim, id)).replace("Horário ocupado: ", "o horário já está ocupado por ")}` };
@@ -237,10 +375,13 @@ export async function excluirAgendamento(_e: EstadoForm, dados: FormData): Promi
   await exigirEquipe();
   const id = texto(dados, "id");
   const supabase = await criarClienteServidor();
-  const { data: a } = await supabase.from("agendamentos").select("inicio, profissional_id, status").eq("id", id).maybeSingle();
+  const { data: a } = await supabase.from("agendamentos").select("inicio, profissional_id, status, grupo_repeticao").eq("id", id).maybeSingle();
   if (!a) return { erro: "Agendamento não encontrado." };
   if (a.status === "em_atendimento" || a.status === "concluido") return { erro: "Agendamento com comanda não pode ser excluído." };
-  const { error } = await supabase.from("agendamentos").delete().eq("id", id);
+  const ids = texto(dados, "escopo") === "todos" && a.grupo_repeticao
+    ? (await horariosAbertosDaSerie(supabase, a.grupo_repeticao, id)).map((h) => h.id)
+    : [id];
+  const { error } = await supabase.from("agendamentos").delete().in("id", ids);
   if (error) return { erro: "Não foi possível excluir." };
   revalidatePath("/agenda");
   redirect(`/agenda?data=${partesSP(a.inicio).data}&prof=${a.profissional_id}`);
