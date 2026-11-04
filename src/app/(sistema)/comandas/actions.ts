@@ -107,6 +107,12 @@ export async function manterAberta(_e: EstadoForm, dados: FormData): Promise<Est
   const supabase = await criarClienteServidor();
   const { error } = await supabase.rpc("salvar_caixinhas_pagamentos", { p_comanda_id: comandaId, p_caixinhas: caixinhas, p_pagamentos: pagamentos });
   if (error) return { erro: erroDoBanco(error, "Não foi possível salvar.") };
+  // Comanda avulsa: guarda a data escolhida para quando for fechar
+  const dataAtendimento = texto(dados, "data_atendimento");
+  if (dataAtendimento) {
+    const { error: erroData } = await supabase.from("comandas").update({ data_atendimento: dataAtendimento }).eq("id", comandaId);
+    if (erroData) return { erro: "Não foi possível salvar a data do atendimento." };
+  }
   atualizar(comandaId);
   redirect("/comandas");
 }
@@ -116,7 +122,10 @@ export async function fecharComanda(_e: EstadoForm, dados: FormData): Promise<Es
   const comandaId = texto(dados, "comanda_id");
   const { caixinhas, pagamentos } = lerFechamento(dados);
   const supabase = await criarClienteServidor();
-  const { error } = await supabase.rpc("fechar_comanda", { p_comanda_id: comandaId, p_caixinhas: caixinhas, p_pagamentos: pagamentos });
+  const { error } = await supabase.rpc("fechar_comanda", {
+    p_comanda_id: comandaId, p_caixinhas: caixinhas, p_pagamentos: pagamentos,
+    p_data_atendimento: texto(dados, "data_atendimento") || null,
+  });
   if (error) return { erro: erroDoBanco(error, "Não foi possível fechar a comanda.") };
   atualizar(comandaId);
   revalidatePath("/clientes", "layout");

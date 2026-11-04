@@ -7,7 +7,8 @@ import { Campo, Cartao, Etiqueta, classeInput } from "@/components/ui";
 import { SeletorCliente } from "@/components/seletor-cliente";
 import { exigirEquipe } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
-import { formatarDataHora, formatarPercentual, formatarReais, centavosParaCampo } from "@/lib/formato";
+import { partesSP } from "@/lib/agenda";
+import { formatarDataHora, formatarDiaISO, formatarPercentual, formatarReais, centavosParaCampo, hojeISO } from "@/lib/formato";
 import { resolverComissao, type RegraComissao } from "@/lib/comissao";
 import {
   alterarValorItem, cancelarComanda, reabrirComanda, removerItem, trocarCliente,
@@ -34,6 +35,16 @@ export default async function PaginaComanda({ params, searchParams }: PageProps<
 // ======================================================================
 // Peças comuns
 // ======================================================================
+
+/** Dia em que a comanda entra no faturamento: o da agenda (nunca no futuro) ou o escolhido na avulsa. */
+function diaDoAtendimento(inicioAgenda: string | null, salvo: string | null) {
+  const hoje = hojeISO();
+  if (inicioAgenda) {
+    const dia = partesSP(inicioAgenda).data;
+    return { dia: dia < hoje ? dia : hoje, hoje, daAgenda: true };
+  }
+  return { dia: salvo ?? hoje, hoje, daAgenda: false };
+}
 
 async function catalogo(supabase: Supabase) {
   const [{ data: servs }, { data: prods }, { data: profs }] = await Promise.all([
@@ -80,12 +91,14 @@ type ItemDono = {
 async function ComandaDono({ id, supabase, acabouDeFechar }: { id: string; supabase: Supabase; acabouDeFechar: boolean }) {
   const { data } = await supabase
     .from("comandas")
-    .select("*, clientes(id, nome), comanda_itens(*, profissionais!comanda_itens_profissional_id_fkey(nome)), comanda_caixinhas(*), comanda_pagamentos(*)")
+    .select("*, clientes(id, nome), agendamentos!comandas_agendamento_id_fkey(inicio), comanda_itens(*, profissionais!comanda_itens_profissional_id_fkey(nome)), comanda_caixinhas(*), comanda_pagamentos(*)")
     .eq("id", id)
     .maybeSingle();
   if (!data) notFound();
   const c = data as typeof data & {
     clientes: { id: string; nome: string } | null;
+    agendamentos: { inicio: string } | null;
+    data_atendimento: string | null;
     comanda_itens: ItemDono[];
     comanda_caixinhas: { profissional_id: string; valor_centavos: number }[];
     comanda_pagamentos: { ordem: number; forma: string; valor_centavos: number; parcelas: number; taxa_percentual: number | null; taxa_centavos: number | null }[];
@@ -230,6 +243,7 @@ async function ComandaDono({ id, supabase, acabouDeFechar }: { id: string; supab
                 )}
                 temCliente={Boolean(c.cliente_id)}
                 saldoCliente={(saldoLinha as { saldo_centavos: number } | null)?.saldo_centavos ?? 0}
+                atendimento={diaDoAtendimento(c.agendamentos?.inicio ?? null, c.data_atendimento)}
               />
             )}
             <FormAcao acao={cancelarComanda} className="mt-5 flex flex-col gap-2 border-t border-borda pt-4 sm:flex-row sm:items-end">
@@ -249,7 +263,7 @@ async function ComandaDono({ id, supabase, acabouDeFechar }: { id: string; supab
 }
 
 function ResumoFechada({ c }: {
-  c: { id: string; status: string; fechada_em: string | null; cancelada_em: string | null; motivo: string | null;
+  c: { id: string; status: string; data_atendimento: string | null; fechada_em: string | null; cancelada_em: string | null; motivo: string | null;
     total_itens_centavos: number | null; total_caixinhas_centavos: number | null; total_taxas_centavos: number | null; total_comissoes_centavos: number | null;
     comanda_caixinhas: { profissional_id: string; valor_centavos: number }[];
     comanda_pagamentos: { ordem: number; forma: string; valor_centavos: number; parcelas: number; taxa_percentual: number | null; taxa_centavos: number | null }[] };
@@ -281,7 +295,10 @@ function ResumoFechada({ c }: {
           <dt className="text-suave">Taxas da maquininha</dt><dd className="text-right text-suave">− {formatarReais(c.total_taxas_centavos ?? 0)}</dd>
           <dt className="font-bold">Total recebido</dt><dd className="text-right font-bold">{formatarReais(recebido)}</dd>
         </dl>
-        <p className="mt-2 text-xs text-suave">Fechada em {c.fechada_em && formatarDataHora(c.fechada_em)}.</p>
+        <p className="mt-2 text-xs text-suave">
+          Fechada em {c.fechada_em && formatarDataHora(c.fechada_em)}.
+          {c.data_atendimento && c.fechada_em && c.data_atendimento !== partesSP(c.fechada_em).data && <> Entrou no faturamento de {formatarDiaISO(c.data_atendimento)}.</>}
+        </p>
       </Cartao>
       <Cartao>
         <h3 className="mb-1 font-semibold">Reabrir comanda</h3>

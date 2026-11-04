@@ -6,7 +6,7 @@ import { MensagemErro } from "@/components/formulario";
 import { classeBotao, classeInput } from "@/components/ui";
 
 const campoEstreito = classeInput.replace("w-full ", "");
-import { centavosParaCampo, formatarReais, reaisParaCentavos } from "@/lib/formato";
+import { centavosParaCampo, formatarDiaISO, formatarReais, reaisParaCentavos } from "@/lib/formato";
 import { fecharComanda, manterAberta } from "../actions";
 
 export type ItemFechamento = {
@@ -30,7 +30,7 @@ const FORMAS: { id: Forma; rotulo: string }[] = [
 
 type Linha = { forma: Forma; valor: string; parcelas: number };
 
-export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais, pagamentosIniciais, taxas, taxasCredito, temCliente, saldoCliente }: {
+export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais, pagamentosIniciais, taxas, taxasCredito, temCliente, saldoCliente, atendimento }: {
   comandaId: string;
   itens: ItemFechamento[];
   profissionais: { id: string; nome: string }[];
@@ -41,6 +41,8 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
   taxasCredito: Record<number, number>;
   temCliente: boolean;
   saldoCliente: number;
+  /** Dia em que a comanda entra no faturamento; só a avulsa pode escolher */
+  atendimento: { dia: string; hoje: string; daAgenda: boolean };
 }) {
   const [estadoFechar, acaoFechar, fechando] = useActionState(fecharComanda, null);
   const [estadoManter, acaoManter, mantendo] = useActionState(manterAberta, null);
@@ -49,6 +51,7 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
   const [caixinhas, setCaixinhas] = useState<Record<string, string>>(() =>
     Object.fromEntries(profissionais.map((p) => [p.id, caixinhasIniciais[p.id] ? centavosParaCampo(caixinhasIniciais[p.id]) : ""])),
   );
+  const [dataAtendimento, setDataAtendimento] = useState(atendimento.dia);
   const [linhas, setLinhas] = useState<Linha[]>(() =>
     pagamentosIniciais.length
       ? pagamentosIniciais.map((p) => ({ forma: p.forma, valor: centavosParaCampo(p.valor_centavos), parcelas: p.parcelas }))
@@ -80,6 +83,7 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
     const quem = (e.nativeEvent as SubmitEvent).submitter?.getAttribute("value");
     const dados = new FormData();
     dados.set("comanda_id", comandaId);
+    if (!atendimento.daAgenda) dados.set("data_atendimento", dataAtendimento);
     dados.set("caixinhas", JSON.stringify(profissionais.map((p) => ({ profissional_id: p.id, valor_centavos: caixinhaCent(p.id) })).filter((c) => c.valor_centavos > 0)));
     dados.set("pagamentos", JSON.stringify(linhas.map((l, i) => ({ forma: l.forma, valor_centavos: valores[i], parcelas: l.parcelas })).filter((p) => p.valor_centavos > 0)));
     startTransition(() => (quem === "fechar" ? acaoFechar(dados) : acaoManter(dados)));
@@ -88,6 +92,22 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
   return (
     <form onSubmit={enviar} className="flex flex-col gap-5">
       <MensagemErro erro={estadoFechar?.erro ?? estadoManter?.erro} />
+
+      {/* Dia do atendimento */}
+      {atendimento.daAgenda ? (
+        atendimento.dia !== atendimento.hoje && (
+          <p className="rounded-lg bg-aguardando-fundo p-2 text-sm text-aguardando">
+            Entra no faturamento e nas comissões de <strong>{formatarDiaISO(atendimento.dia)}</strong>, o dia da agenda.
+          </p>
+        )
+      ) : (
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-semibold">Data do atendimento</span>
+          <input type="date" required value={dataAtendimento} max={atendimento.hoje} onChange={(e) => setDataAtendimento(e.target.value)}
+            className={`${campoEstreito} w-48`} />
+          <span className="text-xs text-suave">Mude só se esqueceu de lançar no dia. Faturamento e comissões entram nessa data.</span>
+        </label>
+      )}
 
       {/* Caixinha */}
       <section>
