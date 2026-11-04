@@ -88,7 +88,7 @@ async function ComandaDono({ id, supabase, acabouDeFechar }: { id: string; supab
     clientes: { id: string; nome: string } | null;
     comanda_itens: ItemDono[];
     comanda_caixinhas: { profissional_id: string; valor_centavos: number }[];
-    comanda_pagamentos: { ordem: number; forma: string; valor_centavos: number; taxa_percentual: number | null; taxa_centavos: number | null }[];
+    comanda_pagamentos: { ordem: number; forma: string; valor_centavos: number; parcelas: number; taxa_percentual: number | null; taxa_centavos: number | null }[];
   };
   const itens = [...c.comanda_itens].sort((a, b) => a.descricao.localeCompare(b.descricao));
   const aberta = c.status === "aberta";
@@ -96,7 +96,7 @@ async function ComandaDono({ id, supabase, acabouDeFechar }: { id: string; supab
   const [cat, { data: regras }, { data: cfg }, { data: saldoLinha }, { data: abertas }] = await Promise.all([
     catalogo(supabase),
     supabase.from("regras_comissao").select("*"),
-    supabase.from("configuracoes").select("taxa_credito, taxa_debito, taxa_pix").single(),
+    supabase.from("configuracoes").select("taxa_credito, taxa_credito_2x, taxa_credito_3x, taxa_credito_4x, taxa_debito, taxa_pix").single(),
     c.cliente_id ? supabase.from("saldos_clientes").select("saldo_centavos").eq("cliente_id", c.cliente_id).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from("comandas").select("id, numero, clientes(nome)").eq("status", "aberta").order("aberta_em"),
   ]);
@@ -220,8 +220,14 @@ async function ComandaDono({ id, supabase, acabouDeFechar }: { id: string; supab
                 itens={itensFech}
                 profissionais={profsNaComanda}
                 caixinhasIniciais={Object.fromEntries(c.comanda_caixinhas.map((x: { profissional_id: string; valor_centavos: number }) => [x.profissional_id, x.valor_centavos]))}
-                pagamentosIniciais={[...c.comanda_pagamentos].sort((a, b) => a.ordem - b.ordem).map((p) => ({ forma: p.forma as never, valor_centavos: p.valor_centavos }))}
+                pagamentosIniciais={[...c.comanda_pagamentos].sort((a, b) => a.ordem - b.ordem).map((p) => ({ forma: p.forma as never, valor_centavos: p.valor_centavos, parcelas: p.parcelas }))}
                 taxas={{ credito: Number(cfg?.taxa_credito ?? 0), debito: Number(cfg?.taxa_debito ?? 0), pix: Number(cfg?.taxa_pix ?? 0), dinheiro: 0, saldo: 0 }}
+                taxasCredito={Object.fromEntries(
+                  [cfg?.taxa_credito ?? 0, cfg?.taxa_credito_2x, cfg?.taxa_credito_3x, cfg?.taxa_credito_4x]
+                    .map((taxa, i) => [i + 1, taxa] as const)
+                    .filter(([, taxa]) => taxa != null)
+                    .map(([n, taxa]) => [n, Number(taxa)]),
+                )}
                 temCliente={Boolean(c.cliente_id)}
                 saldoCliente={(saldoLinha as { saldo_centavos: number } | null)?.saldo_centavos ?? 0}
               />
@@ -246,7 +252,7 @@ function ResumoFechada({ c }: {
   c: { id: string; status: string; fechada_em: string | null; cancelada_em: string | null; motivo: string | null;
     total_itens_centavos: number | null; total_caixinhas_centavos: number | null; total_taxas_centavos: number | null; total_comissoes_centavos: number | null;
     comanda_caixinhas: { profissional_id: string; valor_centavos: number }[];
-    comanda_pagamentos: { ordem: number; forma: string; valor_centavos: number; taxa_percentual: number | null; taxa_centavos: number | null }[] };
+    comanda_pagamentos: { ordem: number; forma: string; valor_centavos: number; parcelas: number; taxa_percentual: number | null; taxa_centavos: number | null }[] };
 }) {
   if (c.status === "cancelada") {
     return (
@@ -264,7 +270,7 @@ function ResumoFechada({ c }: {
         <ul className="mb-3 flex flex-col gap-1 text-sm">
           {[...c.comanda_pagamentos].sort((a, b) => a.ordem - b.ordem).map((p) => (
             <li key={p.ordem} className="flex justify-between">
-              <span>{NOME_FORMA[p.forma]}{(p.taxa_centavos ?? 0) > 0 && <span className="text-xs text-suave"> (taxa {formatarPercentual(Number(p.taxa_percentual))} = {formatarReais(p.taxa_centavos!)})</span>}</span>
+              <span>{NOME_FORMA[p.forma]}{p.parcelas > 1 && ` em ${p.parcelas}x`}{(p.taxa_centavos ?? 0) > 0 && <span className="text-xs text-suave"> (taxa {formatarPercentual(Number(p.taxa_percentual))} = {formatarReais(p.taxa_centavos!)})</span>}</span>
               <span className="font-medium">{formatarReais(p.valor_centavos)}</span>
             </li>
           ))}

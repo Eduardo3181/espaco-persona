@@ -57,9 +57,21 @@ export default async function PaginaConfiguracoes({ searchParams }: PageProps<"/
             <legend className="mb-2 text-sm font-semibold">Taxas da maquininha (%)</legend>
             <div className="flex flex-wrap gap-3">
               <Campo rotulo="Débito"><input name="taxa_debito" inputMode="decimal" required defaultValue={paraCampo(c?.taxa_debito ?? 1.99)} className={`${campoCurto} w-28`} /></Campo>
-              <Campo rotulo="Crédito"><input name="taxa_credito" inputMode="decimal" required defaultValue={paraCampo(c?.taxa_credito ?? 3.49)} className={`${campoCurto} w-28`} /></Campo>
               <Campo rotulo="Pix"><input name="taxa_pix" inputMode="decimal" defaultValue={paraCampo(c?.taxa_pix ?? 0)} className={`${campoCurto} w-28`} /></Campo>
             </div>
+            <p className="mt-3 mb-2 text-sm font-medium">Crédito</p>
+            <div className="flex flex-wrap gap-3">
+              <Campo rotulo="1x (à vista)"><input name="taxa_credito" inputMode="decimal" required defaultValue={paraCampo(c?.taxa_credito ?? 3.49)} className={`${campoCurto} w-28`} /></Campo>
+              {([2, 3, 4] as const).map((n) => {
+                const atual = c?.[`taxa_credito_${n}x`];
+                return (
+                  <Campo key={n} rotulo={`${n}x`}>
+                    <input name={`taxa_credito_${n}x`} inputMode="decimal" defaultValue={atual == null ? "" : paraCampo(atual)} className={`${campoCurto} w-28`} />
+                  </Campo>
+                );
+              })}
+            </div>
+            <p className="mt-1 text-xs text-suave">Parcelamento em branco não aparece na comanda. A taxa fica por conta do salão: a cliente paga o mesmo total.</p>
             <p className="mt-1 text-xs text-suave">Valem para as comandas fechadas a partir de agora; as antigas guardam a taxa usada.</p>
           </fieldset>
 

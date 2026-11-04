@@ -28,15 +28,17 @@ const FORMAS: { id: Forma; rotulo: string }[] = [
   { id: "saldo", rotulo: "Saldo na casa" },
 ];
 
-type Linha = { forma: Forma; valor: string };
+type Linha = { forma: Forma; valor: string; parcelas: number };
 
-export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais, pagamentosIniciais, taxas, temCliente, saldoCliente }: {
+export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais, pagamentosIniciais, taxas, taxasCredito, temCliente, saldoCliente }: {
   comandaId: string;
   itens: ItemFechamento[];
   profissionais: { id: string; nome: string }[];
   caixinhasIniciais: Record<string, number>;
-  pagamentosIniciais: { forma: Forma; valor_centavos: number }[];
+  pagamentosIniciais: { forma: Forma; valor_centavos: number; parcelas: number }[];
   taxas: Record<Forma, number>;
+  /** Taxa de cada parcelamento do crédito cadastrado (1x sempre existe) */
+  taxasCredito: Record<number, number>;
   temCliente: boolean;
   saldoCliente: number;
 }) {
@@ -49,8 +51,8 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
   );
   const [linhas, setLinhas] = useState<Linha[]>(() =>
     pagamentosIniciais.length
-      ? pagamentosIniciais.map((p) => ({ forma: p.forma, valor: centavosParaCampo(p.valor_centavos) }))
-      : [{ forma: "pix", valor: "" }],
+      ? pagamentosIniciais.map((p) => ({ forma: p.forma, valor: centavosParaCampo(p.valor_centavos), parcelas: p.parcelas }))
+      : [{ forma: "pix", valor: "", parcelas: 1 }],
   );
 
   const totalItens = itens.reduce((t, i) => t + i.total, 0);
@@ -63,7 +65,9 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
   const somaFixas = fixas.reduce((t, v) => t + v, 0);
   const restante = totalReceber - somaFixas;
   const valores = [...fixas, Math.max(restante, 0)];
-  const taxaTotal = linhas.reduce((t, l, i) => t + Math.round((valores[i] * (taxas[l.forma] ?? 0)) / 100), 0);
+  const percentualDe = (l: Linha) => (l.forma === "credito" ? taxasCredito[l.parcelas] ?? 0 : taxas[l.forma] ?? 0);
+  const opcoesParcelas = Object.keys(taxasCredito).map(Number).sort((a, b) => a - b);
+  const taxaTotal = linhas.reduce((t, l, i) => t + Math.round((valores[i] * percentualDe(l)) / 100), 0);
   const semRegra = itens.filter((i) => i.percentual === null);
   const usaSaldo = linhas.some((l, i) => l.forma === "saldo" && valores[i] > 0);
   const valorSaldo = linhas.reduce((t, l, i) => t + (l.forma === "saldo" ? valores[i] : 0), 0);
@@ -77,7 +81,7 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
     const dados = new FormData();
     dados.set("comanda_id", comandaId);
     dados.set("caixinhas", JSON.stringify(profissionais.map((p) => ({ profissional_id: p.id, valor_centavos: caixinhaCent(p.id) })).filter((c) => c.valor_centavos > 0)));
-    dados.set("pagamentos", JSON.stringify(linhas.map((l, i) => ({ forma: l.forma, valor_centavos: valores[i] })).filter((p) => p.valor_centavos > 0)));
+    dados.set("pagamentos", JSON.stringify(linhas.map((l, i) => ({ forma: l.forma, valor_centavos: valores[i], parcelas: l.parcelas })).filter((p) => p.valor_centavos > 0)));
     startTransition(() => (quem === "fechar" ? acaoFechar(dados) : acaoManter(dados)));
   };
 
@@ -110,7 +114,7 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
             const ultima = i === linhas.length - 1;
             return (
               <div key={i} className="flex flex-wrap items-center gap-2">
-                <select value={l.forma} onChange={(e) => setLinhas(linhas.map((x, j) => (j === i ? { ...x, forma: e.target.value as Forma } : x)))}
+                <select value={l.forma} onChange={(e) => setLinhas(linhas.map((x, j) => (j === i ? { ...x, forma: e.target.value as Forma, parcelas: 1 } : x)))}
                   aria-label={`Forma de pagamento ${i + 1}`} className={`${campoEstreito} w-40`}>
                   {FORMAS.filter((f) => f.id !== "saldo" || temCliente).map((f) => <option key={f.id} value={f.id}>{f.rotulo}</option>)}
                 </select>
@@ -122,8 +126,16 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
                   <input value={l.valor} onChange={(e) => setLinhas(linhas.map((x, j) => (j === i ? { ...x, valor: e.target.value } : x)))}
                     inputMode="decimal" placeholder="0,00" aria-label={`Valor ${i + 1}`} className={`${campoEstreito} w-32`} />
                 )}
-                {(taxas[l.forma] ?? 0) > 0 && valores[i] > 0 && (
-                  <span className="text-xs text-suave">taxa {formatarReais(Math.round((valores[i] * taxas[l.forma]) / 100))}</span>
+                {l.forma === "credito" && (
+                  <select value={l.parcelas} onChange={(e) => setLinhas(linhas.map((x, j) => (j === i ? { ...x, parcelas: Number(e.target.value) } : x)))}
+                    aria-label={`Parcelas do crédito ${i + 1}`} className={`${campoEstreito} w-48`}>
+                    {[...new Set([...opcoesParcelas, l.parcelas])].sort((a, b) => a - b).map((n) => (
+                      <option key={n} value={n}>{n === 1 ? "1x (à vista)" : `${n}x${valores[i] > 0 ? ` de ${formatarReais(Math.ceil(valores[i] / n))}` : ""}`}</option>
+                    ))}
+                  </select>
+                )}
+                {percentualDe(l) > 0 && valores[i] > 0 && (
+                  <span className="text-xs text-suave">taxa {formatarReais(Math.round((valores[i] * percentualDe(l)) / 100))}</span>
                 )}
                 {linhas.length > 1 && (
                   <button type="button" onClick={() => setLinhas(linhas.filter((_, j) => j !== i))}
@@ -139,7 +151,7 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
           onClick={() => {
             // a última linha "congela" o valor que estava calculado, e a nova passa a receber o restante
             const congeladas = linhas.map((l, i) => (i === linhas.length - 1 ? { ...l, valor: centavosParaCampo(Math.max(restante, 0)) } : l));
-            setLinhas([...congeladas, { forma: "credito", valor: "" }]);
+            setLinhas([...congeladas, { forma: "credito", valor: "", parcelas: 1 }]);
           }}>
           <Plus size={16} aria-hidden /> Dividir pagamento
         </button>
