@@ -1,72 +1,129 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, X } from "lucide-react";
-import { BotaoEnviar, MensagemErro, useEnvioSemLimpar } from "@/components/formulario";
-import { classeInput } from "@/components/ui";
-import { BuscaItem } from "@/components/busca-item";
+import { useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { Plus, Search, X } from "lucide-react";
+import { MensagemErro, useEnvioSemLimpar } from "@/components/formulario";
+import { classeBotao, classeInput } from "@/components/ui";
+import { formatarDuracao, formatarReais, semAcento } from "@/lib/formato";
 import { lancarItem } from "../actions";
 
-type Opcao = { id: string; nome: string; grupo: string; detalhe?: string };
+export type OpcaoItem = { id: string; nome: string; grupo: string; preco_centavos: number; duracao_min?: number };
+type Tipo = "servico" | "produto";
 
-/** Formulário para lançar serviço ou produto na comanda. */
+const NOMES: Record<Tipo, string> = { servico: "serviço", produto: "produto" };
+
+/**
+ * Botões "+ Serviço" e "+ Produto": abrem a janela de seleção com busca por parte do nome
+ * (sem acento também funciona). Ao escolher, o item entra na comanda com o preço atual da tabela.
+ */
 export function AdicionarItem({ comandaId, servicos, produtos, profissionais, podeEscolherProf, profPadrao }: {
   comandaId: string;
-  servicos: Opcao[];
-  produtos: Opcao[];
+  servicos: OpcaoItem[];
+  produtos: OpcaoItem[];
   profissionais: { id: string; nome: string }[];
   podeEscolherProf: boolean;
   profPadrao: string;
 }) {
   const { estado, aoEnviar, pendente } = useEnvioSemLimpar(lancarItem);
-  const [tipo, setTipo] = useState<"servico" | "produto">("servico");
-  const [escolhido, setEscolhido] = useState<Opcao | null>(null);
+  const [tipo, setTipo] = useState<Tipo>("servico");
+  const [termo, setTermo] = useState("");
+  const janela = useRef<HTMLDialogElement>(null);
+  const form = useRef<HTMLFormElement>(null);
+  const busca = useRef<HTMLInputElement>(null);
+  const quantidade = useRef<HTMLInputElement>(null);
   const opcoes = tipo === "servico" ? servicos : produtos;
 
+  const filtradas = useMemo(() => {
+    const palavras = semAcento(termo).split(/\s+/).filter(Boolean);
+    return palavras.length
+      ? opcoes.filter((o) => { const n = semAcento(o.nome); return palavras.every((p) => n.includes(p)); })
+      : opcoes;
+  }, [termo, opcoes]);
+
+  const abrir = (t: Tipo) => {
+    setTipo(t);
+    setTermo("");
+    if (quantidade.current) quantidade.current.value = "1";
+    janela.current?.showModal();
+    busca.current?.focus();
+  };
+  const fechar = () => janela.current?.close();
+
+  // Enter na busca escolhe o primeiro da lista
+  const teclado = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const primeiro = form.current?.querySelector<HTMLButtonElement>("button[name=item]");
+    if (primeiro) form.current?.requestSubmit(primeiro);
+  };
+
   return (
-    <form onSubmit={(e) => { aoEnviar(e); setEscolhido(null); }} className="flex flex-col gap-3 rounded-lg border border-dashed border-borda p-3">
+    <div className="flex flex-col gap-2">
       <MensagemErro erro={estado?.erro} />
-      <input type="hidden" name="comanda_id" value={comandaId} />
-      <div className="flex gap-1" role="radiogroup" aria-label="Tipo de item">
-        {(["servico", "produto"] as const).map((t) => (
-          <button key={t} type="button" role="radio" aria-checked={tipo === t} onClick={() => { setTipo(t); setEscolhido(null); }}
-            className={`min-h-11 flex-1 rounded-lg text-sm font-semibold sm:flex-none sm:px-5 ${tipo === t ? "bg-escuro text-sobre-escuro" : "border border-borda bg-cartao"}`}>
-            {t === "servico" ? "Serviço" : "Produto"}
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => abrir("servico")} disabled={pendente} className={classeBotao("secundario", "flex-1 sm:flex-none")}>
+          <Plus size={16} aria-hidden /> Serviço
+        </button>
+        <button type="button" onClick={() => abrir("produto")} disabled={pendente} className={classeBotao("secundario", "flex-1 sm:flex-none")}>
+          <Plus size={16} aria-hidden /> Produto
+        </button>
+        {pendente && <span className="flex min-h-11 items-center text-sm text-suave">Lançando…</span>}
       </div>
-      <div className="grid gap-2 sm:grid-cols-[1fr_5rem_12rem_auto] sm:items-end">
-        <div className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">{tipo === "servico" ? "Serviço" : "Produto"}</span>
-          {escolhido ? (
-            <span className="flex min-h-11 items-center justify-between gap-2 rounded-lg border border-rose-claro bg-agendado-fundo/50 pl-3">
-              <input type="hidden" name="item" value={`${tipo}:${escolhido.id}`} />
-              <span className="min-w-0 truncate"><strong>{escolhido.nome}</strong>{escolhido.detalhe && <span className="text-suave"> · {escolhido.detalhe}</span>}</span>
-              <button type="button" onClick={() => setEscolhido(null)} aria-label="Trocar item"
-                className="flex min-h-11 min-w-11 items-center justify-center text-suave hover:text-erro"><X size={18} /></button>
-            </span>
-          ) : (
-            <BuscaItem key={tipo} rotulo={tipo === "servico" ? "Buscar serviço" : "Buscar produto"}
-              placeholder={tipo === "servico" ? "Digite o serviço…" : "Digite o produto…"}
-              opcoes={opcoes} aoEscolher={(id) => setEscolhido(opcoes.find((o) => o.id === id) ?? null)} />
-          )}
-        </div>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Qtd.</span>
-          <input name="quantidade" type="number" min={1} defaultValue={1} required className={classeInput} />
-        </label>
-        {podeEscolherProf ? (
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Profissional</span>
-            <select name="profissional_id" required defaultValue={profPadrao} className={classeInput}>
-              <option value="" disabled>Escolha…</option>
-              {profissionais.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
-            </select>
-          </label>
-        ) : <span className="hidden sm:block" />}
-        <BotaoEnviar pendenteExterno={pendente} pendente="Lançando…"><Plus size={16} aria-hidden /> Lançar</BotaoEnviar>
-      </div>
-      {tipo === "produto" && produtos.length === 0 && <p className="text-xs text-suave">Nenhum produto cadastrado ainda (Serviços e produtos → Produtos).</p>}
-    </form>
+
+      <dialog ref={janela} aria-labelledby={`titulo-selecionar-${comandaId}`}
+        className="m-auto max-h-[90dvh] w-[min(42rem,calc(100%-1rem))] rounded-xl border border-borda bg-cartao p-0 text-texto shadow-xl backdrop:bg-escuro/50">
+        <form ref={form} onSubmit={(e) => { aoEnviar(e); fechar(); }} className="flex max-h-[90dvh] flex-col">
+          <input type="hidden" name="comanda_id" value={comandaId} />
+          <div className="flex items-center justify-between gap-2 border-b border-borda py-1 pr-1 pl-4">
+            <h2 id={`titulo-selecionar-${comandaId}`} className="font-titulo text-2xl font-bold">Selecionar {NOMES[tipo]}</h2>
+            <button type="button" onClick={fechar} aria-label="Fechar"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-suave hover:text-texto"><X size={20} /></button>
+          </div>
+
+          <div className="grid gap-2 border-b border-borda p-4 sm:grid-cols-[1fr_5rem]">
+            <div className="relative sm:col-span-2">
+              <Search size={18} className="pointer-events-none absolute top-3 left-3 text-suave" aria-hidden />
+              <input ref={busca} value={termo} onChange={(e) => setTermo(e.target.value)} onKeyDown={teclado} type="search"
+                placeholder={`Digite parte do nome do ${NOMES[tipo]}…`} aria-label={`Buscar ${NOMES[tipo]}`} autoComplete="off"
+                className={`${classeInput} pl-10`} />
+            </div>
+            {podeEscolherProf ? (
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Profissional</span>
+                <select name="profissional_id" required defaultValue={profPadrao} className={classeInput}>
+                  <option value="" disabled>Escolha…</option>
+                  {profissionais.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                </select>
+              </label>
+            ) : <span className="hidden sm:block" />}
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Qtd.</span>
+              <input ref={quantidade} name="quantidade" type="number" min={1} defaultValue={1} required className={classeInput}
+                onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }} />
+            </label>
+          </div>
+
+          <ul className="min-h-40 flex-1 overflow-y-auto" aria-label={`Lista de ${NOMES[tipo]}s`}>
+            {opcoes.length === 0 && <li className="p-4 text-sm text-suave">Nenhum {NOMES[tipo]} cadastrado ainda (Serviços e produtos).</li>}
+            {opcoes.length > 0 && filtradas.length === 0 && <li className="p-4 text-sm text-suave">Nada encontrado para “{termo}”.</li>}
+            {filtradas.map((o, i) => (
+              <li key={o.id}>
+                {(i === 0 || filtradas[i - 1].grupo !== o.grupo) && (
+                  <p className="sticky top-0 bg-fundo px-4 py-1 text-xs font-semibold uppercase tracking-wide text-rose">{o.grupo}</p>
+                )}
+                <button name="item" value={`${tipo}:${o.id}`}
+                  className="flex min-h-12 w-full items-center justify-between gap-3 border-b border-borda px-4 py-2 text-left text-sm hover:bg-agendado-fundo focus:bg-agendado-fundo focus:outline-none">
+                  <span className="min-w-0">
+                    <span className="block font-medium">{o.nome}</span>
+                    <span className="block text-xs text-suave">{o.grupo}{o.duracao_min ? ` · ${formatarDuracao(o.duracao_min)}` : ""}</span>
+                  </span>
+                  <span className="shrink-0 font-semibold">{formatarReais(o.preco_centavos)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </form>
+      </dialog>
+    </div>
   );
 }

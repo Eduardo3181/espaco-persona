@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
-import { Pencil, Plus } from "lucide-react";
+import { Percent, Plus } from "lucide-react";
 import { BotaoEnviar, FormAcao, type AcaoForm } from "@/components/formulario";
-import { BotaoLink, Campo, Cartao, Etiqueta, Vazio, classeInput } from "@/components/ui";
-import { centavosParaCampo, formatarDuracao, formatarPercentual, formatarReais } from "@/lib/formato";
+import { BotaoLink, Campo, Cartao, Etiqueta, Vazio, classeBotao, classeInput } from "@/components/ui";
+import { centavosParaCampo, formatarPercentual, formatarReais, lerReajuste, precoReajustado } from "@/lib/formato";
 import { comissaoHerdada, resolverComissao, type RegraComissao } from "@/lib/comissao";
-import { salvarCategoria, salvarPacote, salvarProduto, salvarServico } from "./actions";
+import { aplicarReajuste, salvarCategoria, salvarPacote, salvarProduto, salvarServico } from "./actions";
+import { ListaServicos } from "./lista-servicos";
+import { Grupo, Linha } from "./pecas";
 
 type Categoria = { id: string; nome: string; tipo: "servico" | "produto"; ativo: boolean };
 type Servico = { id: string; nome: string; categoria_id: string; duracao_min: number; preco_centavos: number; ativo: boolean };
@@ -26,20 +28,23 @@ export type Dados = {
   regras: RegraComissao[];
 };
 
-type PropsAba = { dados: Dados; ehDono: boolean; editar?: string };
+type PropsAba = { dados: Dados; ehDono: boolean; editar?: string; reajuste?: { percentual: string; categoria: string } };
 
 // ------------------------------------------------------------ peças comuns
 
-function Cabecalho({ texto, aba, rotuloNovo, ehDono, formAberto }: {
-  texto: string; aba: string; rotuloNovo: string; ehDono: boolean; formAberto: boolean;
+function Cabecalho({ texto, aba, rotuloNovo, ehDono, formAberto, extra }: {
+  texto: string; aba: string; rotuloNovo: string; ehDono: boolean; formAberto: boolean; extra?: ReactNode;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-sm text-suave">{texto}</p>
       {ehDono && !formAberto && (
-        <BotaoLink href={`/servicos?aba=${aba}&editar=novo`}>
-          <Plus size={18} aria-hidden /> {rotuloNovo}
-        </BotaoLink>
+        <div className="flex flex-wrap gap-2">
+          {extra}
+          <BotaoLink href={`/servicos?aba=${aba}&editar=novo`}>
+            <Plus size={18} aria-hidden /> {rotuloNovo}
+          </BotaoLink>
+        </div>
       )}
     </div>
   );
@@ -71,30 +76,6 @@ function CaixaAtivo({ ativo, rotulo = "Ativo (aparece para uso)" }: { ativo?: bo
   );
 }
 
-function Linha({ inativo, children, editarHref, ehDono, nome }: {
-  inativo: boolean; children: ReactNode; editarHref: string; ehDono: boolean; nome: string;
-}) {
-  return (
-    <li className={`flex items-start gap-3 px-4 py-3 ${inativo ? "opacity-60" : ""}`}>
-      <div className="min-w-0 flex-1">{children}</div>
-      {ehDono && (
-        <BotaoLink href={editarHref} variante="fantasma" className="shrink-0 px-2" aria-label={`Editar ${nome}`}>
-          <Pencil size={18} />
-        </BotaoLink>
-      )}
-    </li>
-  );
-}
-
-function Grupo({ titulo, children }: { titulo: string; children: ReactNode }) {
-  return (
-    <section className="overflow-hidden rounded-xl border border-borda bg-cartao">
-      <h3 className="border-b border-borda bg-fundo/60 px-4 py-2 text-sm font-semibold text-rose">{titulo}</h3>
-      <ul className="divide-y divide-borda">{children}</ul>
-    </section>
-  );
-}
-
 function opcoesCategoria(categorias: Categoria[], tipo: Categoria["tipo"], atual?: string) {
   return categorias.filter((c) => c.tipo === tipo && (c.ativo || c.id === atual));
 }
@@ -108,7 +89,7 @@ function agruparPorCategoria<T extends { categoria_id: string; ativo: boolean }>
 
 // ------------------------------------------------------------ Serviços
 
-export function AbaServicos({ dados, ehDono, editar }: PropsAba) {
+export function AbaServicos({ dados, ehDono, editar, reajuste }: PropsAba) {
   const emEdicao = dados.servicos.find((s) => s.id === editar);
   const formAberto = editar === "novo" || Boolean(emEdicao);
   const grupos = agruparPorCategoria(dados.servicos, dados.categorias);
@@ -119,6 +100,11 @@ export function AbaServicos({ dados, ehDono, editar }: PropsAba) {
       <Cabecalho
         texto="Serviços oferecidos, com duração e valor “a partir de”."
         aba="servicos" rotuloNovo="Novo serviço" ehDono={ehDono} formAberto={formAberto}
+        extra={reajuste === undefined && (
+          <BotaoLink href="/servicos?aba=servicos&reajuste=" variante="secundario">
+            <Percent size={18} aria-hidden /> Reajustar preços
+          </BotaoLink>
+        )}
       />
 
       {ehDono && formAberto && (
@@ -168,41 +154,100 @@ export function AbaServicos({ dados, ehDono, editar }: PropsAba) {
         </PainelForm>
       )}
 
-      {grupos.length === 0 ? (
-        <Vazio>Nenhum serviço cadastrado ainda.</Vazio>
-      ) : (
-        grupos.map(({ categoria, itens }) => (
-          <Grupo key={categoria.id} titulo={categoria.nome}>
-            {itens.map((s) => (
-              <Linha key={s.id} inativo={!s.ativo} ehDono={ehDono} nome={s.nome} editarHref={`/servicos?aba=servicos&editar=${s.id}`}>
-                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                  <p className="font-medium">{s.nome} {!s.ativo && <Etiqueta tom="erro">Inativo</Etiqueta>}</p>
-                  <p className="text-sm">
-                    <span className="text-suave">{formatarDuracao(s.duracao_min)} · a partir de </span>
-                    <span className="font-semibold">{formatarReais(s.preco_centavos)}</span>
-                  </p>
-                </div>
-                {ehDono && dados.profissionais.length > 0 && (
-                  <p className="mt-1 text-xs text-suave">
-                    Comissão:{" "}
-                    {dados.profissionais.map((p, i) => {
-                      const c = resolverComissao(dados.regras, p.id, s);
-                      return (
-                        <span key={p.id}>
-                          {i > 0 && " · "}
-                          {p.nome.split(" ")[0]}{" "}
-                          {c ? formatarPercentual(c.percentual) : <span className="font-semibold text-aguardando">sem regra</span>}
-                        </span>
-                      );
-                    })}
-                  </p>
-                )}
-              </Linha>
-            ))}
-          </Grupo>
-        ))
-      )}
+      {ehDono && reajuste !== undefined && !formAberto && <PainelReajuste dados={dados} reajuste={reajuste} />}
+
+      <ListaServicos ehDono={ehDono} grupos={grupos.map(({ categoria, itens }) => ({
+        categoria: { id: categoria.id, nome: categoria.nome },
+        itens: itens.map((s) => ({
+          id: s.id, nome: s.nome, ativo: s.ativo, duracao_min: s.duracao_min, preco_centavos: s.preco_centavos,
+          comissoes: ehDono ? dados.profissionais.map((p) => {
+            const c = resolverComissao(dados.regras, p.id, s);
+            return { nome: p.nome.split(" ")[0], texto: c ? formatarPercentual(c.percentual) : null };
+          }) : undefined,
+        })),
+      }))} />
     </>
+  );
+}
+
+/** Reajuste em massa: escolhe percentual e categoria, vê a prévia "antes → depois" e confirma. */
+function PainelReajuste({ dados, reajuste }: { dados: Dados; reajuste: { percentual: string; categoria: string } }) {
+  const percentual = lerReajuste(reajuste.percentual);
+  const categorias = opcoesCategoria(dados.categorias, "servico");
+  const categoria = categorias.find((c) => c.id === reajuste.categoria);
+  const nomeCategoria = new Map(dados.categorias.map((c) => [c.id, c.nome]));
+  const previa = percentual === null ? [] : dados.servicos
+    .filter((s) => s.ativo && (!categoria || s.categoria_id === categoria.id))
+    .map((s) => ({ ...s, novo: precoReajustado(s.preco_centavos, percentual) }))
+    .filter((s) => s.novo !== s.preco_centavos)
+    .sort((a, b) => (nomeCategoria.get(a.categoria_id) ?? "").localeCompare(nomeCategoria.get(b.categoria_id) ?? "", "pt-BR")
+      || a.nome.localeCompare(b.nome, "pt-BR"));
+  const textoPct = percentual === null ? "" : formatarPercentual(percentual);
+  const qtd = `${previa.length} ${previa.length === 1 ? "serviço" : "serviços"}`;
+
+  return (
+    <Cartao className="flex flex-col gap-4">
+      <div>
+        <h2 className="text-lg font-semibold">Reajustar preços</h2>
+        <p className="text-sm text-suave">
+          Aplica um percentual aos serviços ativos e arredonda para cima até o real inteiro. Comandas já lançadas não mudam.
+        </p>
+      </div>
+      <form action="/servicos" method="get" className="grid gap-3 sm:grid-cols-[10rem_1fr_auto] sm:items-start">
+        <input type="hidden" name="aba" value="servicos" />
+        <Campo rotulo="Percentual (%)" dica="Ex.: 10 ou 7,5. Negativo baixa o preço.">
+          <input name="reajuste" inputMode="decimal" required placeholder="10" defaultValue={reajuste.percentual} className={classeInput} />
+        </Campo>
+        <Campo rotulo="Aplicar em">
+          <select name="categoria" defaultValue={categoria?.id ?? ""} className={classeInput}>
+            <option value="">Todos os serviços</option>
+            {categorias.map((c) => <option key={c.id} value={c.id}>Só {c.nome}</option>)}
+          </select>
+        </Campo>
+        <button className={classeBotao("secundario", "sm:mt-6")}>Ver prévia</button>
+      </form>
+
+      {reajuste.percentual && percentual === null && (
+        <p className="text-sm font-semibold text-erro">Percentual inválido. Use um número entre -99 e 100, diferente de zero (ex.: 10 ou 7,5).</p>
+      )}
+      {percentual !== null && (previa.length === 0 ? (
+        <Vazio>Nenhum preço muda com {textoPct}{categoria && ` em ${categoria.nome}`}.</Vazio>
+      ) : (
+        <>
+          <p className="text-sm">
+            Prévia: <strong>{textoPct}</strong> em <strong>{qtd}</strong>{categoria && <> de <strong>{categoria.nome}</strong></>}. Confira antes de aplicar.
+          </p>
+          <div className="max-h-96 overflow-y-auto rounded-lg border border-borda">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-fundo text-left text-xs text-suave">
+                <tr><th className="px-3 py-2 font-semibold">Serviço</th><th className="px-3 py-2 text-right font-semibold">Antes → depois</th></tr>
+              </thead>
+              <tbody className="divide-y divide-borda">
+                {previa.map((s) => (
+                  <tr key={s.id}>
+                    <td className="px-3 py-2">{s.nome}<span className="block text-xs text-suave">{nomeCategoria.get(s.categoria_id)}</span></td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right">
+                      <span className="text-suave">{formatarReais(s.preco_centavos)}</span> → <strong>{formatarReais(s.novo)}</strong>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <FormAcao acao={aplicarReajuste} className="flex flex-wrap gap-3">
+            <input type="hidden" name="percentual" value={reajuste.percentual} />
+            <input type="hidden" name="categoria_id" value={categoria?.id ?? ""} />
+            <BotaoEnviar pendente="Aplicando…" confirmar={`Aplicar ${textoPct} em ${qtd}${categoria ? ` de ${categoria.nome}` : ""}?`}>
+              Aplicar reajuste em {qtd}
+            </BotaoEnviar>
+            <BotaoLink href="/servicos?aba=servicos" variante="secundario">Cancelar</BotaoLink>
+          </FormAcao>
+        </>
+      ))}
+      {(percentual === null || previa.length === 0) && (
+        <BotaoLink href="/servicos?aba=servicos" variante="secundario" className="self-start">Fechar</BotaoLink>
+      )}
+    </Cartao>
   );
 }
 

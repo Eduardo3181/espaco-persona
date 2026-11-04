@@ -107,3 +107,26 @@ export function formatarDataHora(valor: string | Date): string {
   const p = Object.fromEntries(dataHora.formatToParts(new Date(valor)).map((x) => [x.type, x.value]));
   return `${p.day}/${p.month}/${p.year} às ${p.hour}:${p.minute}`;
 }
+
+/** "Coloração" → "coloracao" (para buscas que ignoram acento e maiúscula) */
+export function semAcento(t: string): string {
+  return t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+/**
+ * Reajuste de preço: aplica o percentual e arredonda PARA CIMA até o real inteiro.
+ * Conta em inteiros (centésimos de %) — igual à função reajustar_precos_servicos do banco.
+ * 8000 (R$ 80) + 7,5% → 8600 (R$ 86)
+ */
+export function precoReajustado(centavos: number, percentual: number): number {
+  const centesimos = Math.round(percentual * 100);
+  return Math.ceil((centavos * (10000 + centesimos)) / 1000000) * 100;
+}
+
+/** Percentual de reajuste: "10", "7,5" ou "-5" → número; inválido ou zero → null. */
+export function lerReajuste(texto: string): number | null {
+  const s = texto.replace(/%|\s/g, "").replace(",", ".");
+  if (!/^-?\d+(\.\d{1,2})?$/.test(s)) return null;
+  const n = Number(s);
+  return n === 0 || n <= -100 || n > 100 ? null : n;
+}

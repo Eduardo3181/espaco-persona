@@ -20,6 +20,9 @@ export default async function PaginaServicos({ searchParams }: PageProps<"/servi
   const params = await searchParams;
   const aba = ABAS.some((a) => a.id === params.aba) ? String(params.aba) : "servicos";
   const editar = ehDono && typeof params.editar === "string" ? params.editar : undefined;
+  const reajuste = ehDono && aba === "servicos" && typeof params.reajuste === "string"
+    ? { percentual: params.reajuste.trim(), categoria: typeof params.categoria === "string" ? params.categoria : "" }
+    : undefined;
 
   const supabase = await criarClienteServidor();
   const [categorias, servicos, produtos, pacotes, pacoteServicos, profissionais, regras] = await Promise.all([
@@ -42,7 +45,7 @@ export default async function PaginaServicos({ searchParams }: PageProps<"/servi
     regras: (regras.data ?? []) as RegraComissao[],
   };
 
-  const props = { dados, ehDono, editar };
+  const props = { dados, ehDono, editar, reajuste };
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">

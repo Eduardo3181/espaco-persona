@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { exigirDono } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
-import { lerPercentual, reaisParaCentavos } from "@/lib/formato";
+import { lerPercentual, lerReajuste, reaisParaCentavos } from "@/lib/formato";
 import type { EstadoForm } from "@/components/formulario";
 import type { RegraComissao } from "@/lib/comissao";
 
@@ -78,6 +78,19 @@ export async function salvarServico(_e: EstadoForm, dados: FormData): Promise<Es
     if (resultado?.error) return { erro: "O serviço foi salvo, mas houve erro ao gravar a comissão. Tente de novo." };
   }
 
+  concluir("servicos");
+}
+
+/** Reajuste em massa dos serviços ativos (todos ou de uma categoria), arredondando para cima até o real. */
+export async function aplicarReajuste(_e: EstadoForm, dados: FormData): Promise<EstadoForm> {
+  await exigirDono();
+  const percentual = lerReajuste(texto(dados, "percentual"));
+  if (percentual === null) return { erro: "Percentual inválido." };
+  const supabase = await criarClienteServidor();
+  const { error } = await supabase.rpc("reajustar_precos_servicos", {
+    p_percentual: percentual, p_categoria_id: texto(dados, "categoria_id") || null,
+  });
+  if (error) return { erro: "Não foi possível aplicar o reajuste. Nenhum preço foi alterado." };
   concluir("servicos");
 }
 

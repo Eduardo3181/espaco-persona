@@ -3,10 +3,9 @@
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Search } from "lucide-react";
 import { classeInput } from "@/components/ui";
+import { semAcento } from "@/lib/formato";
 
 export type OpcaoBusca = { id: string; nome: string; grupo: string; detalhe?: string };
-
-const semAcento = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /**
  * Campo com lupa: digite parte do nome e escolha na lista (sem acento também funciona).
