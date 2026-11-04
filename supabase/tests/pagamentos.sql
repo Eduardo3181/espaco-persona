@@ -15,7 +15,7 @@ begin
 
   -- Lançamentos de teste: 1ª quinzena de jan/2030 e um no dia 16 (outro período)
   insert into public.clientes (nome) values ('ZZ Cliente Extrato') returning id into v_cliente;
-  insert into public.comandas (cliente_id, status) values (v_cliente, 'fechada') returning id into v_comanda;
+  insert into public.comandas (cliente_id, status, data_atendimento) values (v_cliente, 'fechada', public.hoje_sp()) returning id into v_comanda;
   insert into public.lancamentos_profissional (profissional_id, tipo, valor_centavos, descricao, data, comanda_id) values
     (v_prof, 'comissao', 4000, 'Escova (40%) — comanda #0', '2030-01-05', v_comanda),
     (v_prof, 'caixinha', 1000, 'Caixinha — comanda #0', '2030-01-15', v_comanda),

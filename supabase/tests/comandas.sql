@@ -20,6 +20,10 @@ begin
   select id, categoria_id into v_color, v_cat_color from public.servicos where nome = 'Coloração';
   select id into v_cat_prod from public.categorias where tipo = 'produto' limit 1;
 
+  -- Preços fixos: o teste não depende da tabela atual (tudo é desfeito no final)
+  update public.servicos set preco_centavos = 8500 where id = v_escova;
+  update public.servicos set preco_centavos = 26500 where id = v_color;
+
   -- Dados temporários
   insert into public.clientes (nome) values ('ZZ Teste SQL') returning id into v_cliente;
   insert into public.movimentos_saldo (cliente_id, valor_centavos, descricao) values (v_cliente, 5000, 'crédito teste');

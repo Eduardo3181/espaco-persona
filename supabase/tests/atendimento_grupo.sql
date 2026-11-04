@@ -16,6 +16,9 @@ begin
   select id into v_escova from public.servicos where nome = 'Escova 1';
   select id into v_mao from public.servicos where nome = 'Mão';
   insert into public.clientes (nome) values ('ZZ Teste Grupo') returning id into v_cliente;
+  -- Preços fixos: o teste não depende da tabela atual (tudo é desfeito no final)
+  update public.servicos set preco_centavos = 8500 where id = v_escova;
+  update public.servicos set preco_centavos = 5000 where id = v_mao;
 
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_dono_user, 'role', 'authenticated')::text, true);
