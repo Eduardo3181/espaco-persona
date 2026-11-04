@@ -55,11 +55,13 @@ export const RECORRENCIAS: Recorrencia[] = ["semanal", "quinzenal", "mensal"];
 /** Todas as datas de uma recorrência, da primeira até "ate" (inclusive) */
 export function datasDaRecorrencia(data: string, recorrencia: Recorrencia, ate: string): string[] {
   const datas: string[] = [];
-  for (let i = 0; ; i++) {
+  // Limite de segurança: 1 ano de recorrência semanal tem 53 datas
+  for (let i = 0; i < 60; i++) {
     const d = recorrencia === "mensal" ? somarMeses(data, i) : somarDias(data, i * (recorrencia === "semanal" ? 7 : 14));
-    if (d > ate) return datas;
+    if (d > ate) break;
     datas.push(d);
   }
+  return datas;
 }
 
 /** "2026-11-10" → "10/11" */

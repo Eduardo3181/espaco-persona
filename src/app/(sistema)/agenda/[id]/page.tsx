@@ -105,6 +105,9 @@ export default async function DetalheAgendamento({ params }: PageProps<"/agenda/
   // Agendamento recorrente: quantos horários ainda seriam afetados por "todos"
   const horariosDaSerie = a.grupo_repeticao ? (await horariosAbertosDaSerie(supabase, a.grupo_repeticao, a.id)).length : 0;
   const emSerie = Boolean(a.grupo_repeticao);
+  const desmarcadoNaSerie = a.status === "cancelado" || a.status === "faltou";
+  // Sem outros horários em aberto, não há o que perguntar ao excluir
+  const perguntarAoExcluir = emSerie && (horariosDaSerie > 1 || (horariosDaSerie === 1 && desmarcadoNaSerie));
 
   const primeiroNome = a.clientes?.nome.split(" ")[0] ?? "";
   const [, mm, dd] = ini.data.split("-");
@@ -228,14 +231,14 @@ export default async function DetalheAgendamento({ params }: PageProps<"/agenda/
             <p className="mb-2 text-xs text-suave">
               <CalendarClock size={12} className="inline" aria-hidden /> Use “excluir” só para agendamentos lançados por engano — para cancelamentos, use os botões acima (fica no histórico da cliente).
             </p>
-            {!emSerie && (
+            {!perguntarAoExcluir && (
               <BotaoEnviar variante="fantasma" pendente="Excluindo…" confirmar="Excluir este agendamento de vez? Ele não fica no histórico.">
                 <Trash2 size={16} aria-hidden /> Excluir (lançado por engano)
               </BotaoEnviar>
             )}
           </FormAcao>
         )}
-        {editavel && emSerie && (
+        {editavel && perguntarAoExcluir && (
           <PerguntaSerie acao={excluirAgendamento} id={a.id} rotulo="Excluir (lançado por engano)" variante="fantasma"
             pergunta="Excluir de vez só este agendamento ou todos? Eles não ficam no histórico." qtdTodos={horariosDaSerie} />
         )}

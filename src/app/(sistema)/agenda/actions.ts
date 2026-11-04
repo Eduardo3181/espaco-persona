@@ -378,8 +378,9 @@ export async function excluirAgendamento(_e: EstadoForm, dados: FormData): Promi
   const { data: a } = await supabase.from("agendamentos").select("inicio, profissional_id, status, grupo_repeticao").eq("id", id).maybeSingle();
   if (!a) return { erro: "Agendamento não encontrado." };
   if (a.status === "em_atendimento" || a.status === "concluido") return { erro: "Agendamento com comanda não pode ser excluído." };
+  // O próprio horário sempre sai, mesmo se já estiver desmarcado
   const ids = texto(dados, "escopo") === "todos" && a.grupo_repeticao
-    ? (await horariosAbertosDaSerie(supabase, a.grupo_repeticao, id)).map((h) => h.id)
+    ? [id, ...(await horariosAbertosDaSerie(supabase, a.grupo_repeticao, id)).map((h) => h.id).filter((h) => h !== id)]
     : [id];
   const { error } = await supabase.from("agendamentos").delete().in("id", ids);
   if (error) return { erro: "Não foi possível excluir." };
