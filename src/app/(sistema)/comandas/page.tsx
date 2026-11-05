@@ -95,11 +95,11 @@ async function Fechadas({ data }: { data: string }) {
   const supabase = await criarClienteServidor();
   const { data: linhas } = await supabase
     .from("comandas")
-    .select("id, numero, status, data_atendimento, fechada_em, cancelada_em, total_itens_centavos, total_caixinhas_centavos, clientes(nome)")
+    .select("id, numero, status, motivo, data_atendimento, fechada_em, cancelada_em, total_itens_centavos, total_caixinhas_centavos, clientes(nome)")
     .in("status", ["fechada", "cancelada"])
     .or(`and(status.eq.fechada,data_atendimento.eq.${data}),and(status.eq.cancelada,cancelada_em.gte.${paraTimestamp(data, "00:00")},cancelada_em.lt.${paraTimestamp(somarDias(data, 1), "00:00")})`)
     .order("fechada_em", { ascending: false });
-  type Linha = { id: string; numero: number; status: string; data_atendimento: string | null; fechada_em: string | null; cancelada_em: string | null; total_itens_centavos: number | null; total_caixinhas_centavos: number | null; clientes: { nome: string } | null };
+  type Linha = { id: string; numero: number; status: string; motivo: string | null; data_atendimento: string | null; fechada_em: string | null; cancelada_em: string | null; total_itens_centavos: number | null; total_caixinhas_centavos: number | null; clientes: { nome: string } | null };
   const lista = (linhas ?? []) as unknown as Linha[];
   const fechadas = lista.filter((c) => c.status === "fechada");
   const totalDia = fechadas.reduce((t, c) => t + (c.total_itens_centavos ?? 0), 0);
@@ -131,7 +131,7 @@ async function Fechadas({ data }: { data: string }) {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{c.clientes?.nome ?? "Cliente não identificada"}</span>
                   <span className="text-sm text-suave">
-                    {c.status === "cancelada" ? `Cancelada às ${partesSP(c.cancelada_em!).hora}` : `Fechada${partesSP(c.fechada_em!).data !== c.data_atendimento ? ` em ${partesSP(c.fechada_em!).data.split("-").reverse().slice(0, 2).join("/")}` : ""} às ${partesSP(c.fechada_em!).hora}`}
+                    {c.status === "cancelada" ? (c.motivo?.startsWith("Juntada") ? c.motivo : `Cancelada às ${partesSP(c.cancelada_em!).hora}`) : `Fechada${partesSP(c.fechada_em!).data !== c.data_atendimento ? ` em ${partesSP(c.fechada_em!).data.split("-").reverse().slice(0, 2).join("/")}` : ""} às ${partesSP(c.fechada_em!).hora}`}
                     {(c.total_caixinhas_centavos ?? 0) > 0 && ` · caixinhas ${formatarReais(c.total_caixinhas_centavos!)}`}
                   </span>
                 </span>

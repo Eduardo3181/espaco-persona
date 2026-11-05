@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Trash2 } from "lucide-react";
 import { BotaoEnviar, FormAcao } from "@/components/formulario";
 import { Campo, Cartao, Etiqueta, classeInput } from "@/components/ui";
@@ -28,7 +28,7 @@ export default async function PaginaComanda({ params, searchParams }: PageProps<
   const sp = await searchParams;
   const supabase = await criarClienteServidor();
   return eu.papel === "dono"
-    ? <ComandaDono id={id} supabase={supabase} acabouDeFechar={sp.fechada === "1"} />
+    ? <ComandaDono id={id} supabase={supabase} acabouDeFechar={sp.fechada === "1"} juntada={sp.juntada === "1"} />
     : <ComandaEquipe id={id} supabase={supabase} euId={eu.id} />;
 }
 
@@ -88,7 +88,11 @@ type ItemDono = {
   comissao_percentual: number | null; comissao_centavos: number | null; profissionais: { nome: string } | null;
 };
 
-async function ComandaDono({ id, supabase, acabouDeFechar }: { id: string; supabase: Supabase; acabouDeFechar: boolean }) {
+async function ComandaDono({ id, supabase, acabouDeFechar, juntada }: { id: string; supabase: Supabase; acabouDeFechar: boolean; juntada: boolean }) {
+  // Tudo da cliente no mesmo dia é cobrado junto: serviços de todas as profissionais na mesma comanda
+  const { data: junta } = await supabase.rpc("juntar_comandas_do_dia", { p_comanda_id: id });
+  if (junta && (junta.juntou || junta.comanda_id !== id)) redirect(`/comandas/${junta.comanda_id}?juntada=1`);
+
   const { data } = await supabase
     .from("comandas")
     .select("*, clientes(id, nome), agendamentos!comandas_agendamento_id_fkey(inicio), comanda_itens(*, profissionais!comanda_itens_profissional_id_fkey(nome)), comanda_caixinhas(*), comanda_pagamentos(*)")
@@ -111,7 +115,7 @@ async function ComandaDono({ id, supabase, acabouDeFechar }: { id: string; supab
     supabase.from("regras_comissao").select("*"),
     supabase.from("configuracoes").select("taxa_credito, taxa_credito_2x, taxa_credito_3x, taxa_credito_4x, taxa_debito, taxa_pix").single(),
     c.cliente_id ? supabase.from("saldos_clientes").select("saldo_centavos").eq("cliente_id", c.cliente_id).maybeSingle() : Promise.resolve({ data: null }),
-    supabase.from("comandas").select("id, numero, clientes(nome)").eq("status", "aberta").order("aberta_em"),
+    supabase.from("comandas").select("id, numero, cliente_id, clientes(nome)").eq("status", "aberta").order("aberta_em"),
   ]);
 
   // Prévia de comissão por item (vale a regra mais específica)
@@ -130,7 +134,9 @@ async function ComandaDono({ id, supabase, acabouDeFechar }: { id: string; supab
     };
   });
   const profsNaComanda = [...new Map(itens.map((i) => [i.profissional_id, { id: i.profissional_id, nome: i.profissionais?.nome ?? "" }])).values()];
-  const outrasAbertas = ((abertas ?? []) as unknown as { id: string; numero: number; clientes: { nome: string } | null }[]).filter((x) => x.id !== id);
+  const outrasAbertas = ((abertas ?? []) as unknown as { id: string; numero: number; cliente_id: string | null; clientes: { nome: string } | null }[]).filter((x) => x.id !== id);
+  // As do mesmo dia já foram juntadas: as que sobram da cliente são de outros dias
+  const outrasDaCliente = outrasAbertas.filter((x) => x.cliente_id === c.cliente_id);
 
   return (
     <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
@@ -158,6 +164,17 @@ async function ComandaDono({ id, supabase, acabouDeFechar }: { id: string; supab
             <CheckCircle2 size={18} aria-hidden /> Comanda fechada!
           </p>
         )}
+        {juntada && aberta && (
+          <p role="status" className="rounded-lg border border-atendimento/30 bg-atendimento-fundo px-3 py-2 text-sm font-semibold text-atendimento">
+            Os serviços desta cliente no dia foram reunidos nesta comanda. Confira os itens e o pagamento antes de fechar.
+          </p>
+        )}
+        {aberta && c.cliente_id && outrasDaCliente.map((x) => (
+          <p key={x.id} className="rounded-lg bg-aguardando-fundo px-3 py-2 text-sm text-aguardando">
+            Esta cliente tem outra comanda aberta, de outro dia:{" "}
+            <Link href={`/comandas/${x.id}`} className="font-semibold underline">#{x.numero}</Link>. Ela é cobrada separadamente.
+          </p>
+        ))}
         {c.reaberta_em && aberta && (
           <p className="rounded-lg bg-aguardando-fundo px-3 py-2 text-sm text-aguardando">
             Reaberta em {formatarDataHora(c.reaberta_em)} — motivo: {c.motivo}. As alterações ficam registradas no log.
@@ -229,6 +246,7 @@ async function ComandaDono({ id, supabase, acabouDeFechar }: { id: string; supab
               <p className="text-sm text-suave">Lance pelo menos um item para fechar a comanda.</p>
             ) : (
               <Fechamento
+                key={itens.length}
                 comandaId={c.id}
                 itens={itensFech}
                 profissionais={profsNaComanda}

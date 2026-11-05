@@ -122,6 +122,13 @@ export async function fecharComanda(_e: EstadoForm, dados: FormData): Promise<Es
   const comandaId = texto(dados, "comanda_id");
   const { caixinhas, pagamentos } = lerFechamento(dados);
   const supabase = await criarClienteServidor();
+  // Se apareceu outro serviço da cliente no dia, volta para conferir antes de cobrar
+  const { data: junta, error: erroJunta } = await supabase.rpc("juntar_comandas_do_dia", { p_comanda_id: comandaId });
+  if (erroJunta) return { erro: erroDoBanco(erroJunta, "Não foi possível conferir as comandas da cliente.") };
+  if (junta?.juntou || junta?.comanda_id !== comandaId) {
+    atualizar(comandaId);
+    redirect(`/comandas/${junta?.comanda_id ?? comandaId}?juntada=1`);
+  }
   const { error } = await supabase.rpc("fechar_comanda", {
     p_comanda_id: comandaId, p_caixinhas: caixinhas, p_pagamentos: pagamentos,
     p_data_atendimento: texto(dados, "data_atendimento") || null,
