@@ -28,7 +28,6 @@ async function prepararFoto(arquivo: File): Promise<string> {
 
 /** Escolhe a foto e grava na hora; quem ainda não foi cadastrada guarda para gravar junto com o formulário. */
 function useFoto(profissionalId: string | undefined, urlAtual: string | null) {
-  const entrada = useRef<HTMLInputElement>(null);
   const [nova, setNova] = useState<string | null>(null);
   const [removida, setRemovida] = useState(false);
   const [erro, setErro] = useState("");
@@ -73,15 +72,15 @@ function useFoto(profissionalId: string | undefined, urlAtual: string | null) {
   };
 
   return {
-    entrada, nova, removida, erro, gravada, enviando, aoEscolher, remover,
+    nova, removida, erro, gravada, enviando, aoEscolher, remover,
     previa: nova ?? (removida ? null : urlAtual),
-    abrir: () => entrada.current?.click(),
   };
 }
 
 /** Campo de foto do formulário da Equipe. */
 export function CampoFoto({ profissionalId, urlAtual }: { profissionalId?: string; urlAtual: string | null }) {
   const f = useFoto(profissionalId, urlAtual);
+  const entrada = useRef<HTMLInputElement>(null);
 
   return (
     <div className="flex flex-col gap-1 text-sm sm:col-span-2">
@@ -97,8 +96,8 @@ export function CampoFoto({ profissionalId, urlAtual }: { profissionalId?: strin
             <Camera size={22} aria-hidden />
           </span>
         )}
-        <input ref={f.entrada} type="file" accept="image/*" onChange={f.aoEscolher} className="sr-only" aria-label="Escolher foto" tabIndex={-1} />
-        <button type="button" disabled={f.enviando} onClick={f.abrir} className={classeBotao("secundario")}>
+        <input ref={entrada} type="file" accept="image/*" onChange={f.aoEscolher} className="sr-only" aria-label="Escolher foto" tabIndex={-1} />
+        <button type="button" disabled={f.enviando} onClick={() => entrada.current?.click()} className={classeBotao("secundario")}>
           <Camera size={16} aria-hidden /> {f.enviando ? "Gravando…" : f.previa ? "Trocar foto" : "Carregar foto"}
         </button>
         {f.previa && (
@@ -120,11 +119,12 @@ export function CampoFoto({ profissionalId, urlAtual }: { profissionalId?: strin
 /** Foto no cartão da Equipe: clicou, escolheu, gravou. */
 export function FotoDoCartao({ profissionalId, nome, urlAtual, cor }: { profissionalId: string; nome: string; urlAtual: string | null; cor: string }) {
   const f = useFoto(profissionalId, urlAtual);
+  const entrada = useRef<HTMLInputElement>(null);
 
   return (
     <div className="flex shrink-0 flex-col items-center gap-1">
-      <input ref={f.entrada} type="file" accept="image/*" onChange={f.aoEscolher} className="sr-only" aria-label={`Escolher foto de ${nome}`} tabIndex={-1} />
-      <button type="button" disabled={f.enviando} onClick={f.abrir} title={f.previa ? "Trocar foto" : "Carregar foto"}
+      <input ref={entrada} type="file" accept="image/*" onChange={f.aoEscolher} className="sr-only" aria-label={`Escolher foto de ${nome}`} tabIndex={-1} />
+      <button type="button" disabled={f.enviando} onClick={() => entrada.current?.click()} title={f.previa ? "Trocar foto" : "Carregar foto"}
         aria-label={`${f.previa ? "Trocar" : "Carregar"} foto de ${nome}`}
         className={`flex size-12 items-center justify-center overflow-hidden rounded-full border-2 ${f.enviando ? "opacity-50" : "hover:opacity-80"}`}
         style={{ borderColor: cor }}>
