@@ -4,10 +4,9 @@ import { BotaoEnviar, FormAcao } from "@/components/formulario";
 import { BotaoLink, Campo, Cartao, Etiqueta, classeInput } from "@/components/ui";
 import { exigirDono } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
-import { FotoProfissional } from "@/components/foto-profissional";
 import { linksDasFotos } from "@/lib/fotos";
 import { salvarProfissional } from "./actions";
-import { CampoFoto } from "./campo-foto";
+import { CampoFoto, FotoDoCartao } from "./campo-foto";
 
 export const metadata: Metadata = { title: "Equipe" };
 
@@ -30,7 +29,7 @@ export default async function PaginaEquipe({ searchParams }: PageProps<"/equipe"
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-suave">Quem atende no salão. O login é liberado pelo e-mail cadastrado aqui.</p>
+        <p className="text-sm text-suave">Quem atende no salão. O login é liberado pelo e-mail cadastrado aqui. Clique no círculo para carregar a foto.</p>
         {!mostrarForm && (
           <BotaoLink href="/equipe?editar=novo">
             <Plus size={18} aria-hidden /> Nova profissional
@@ -43,7 +42,7 @@ export default async function PaginaEquipe({ searchParams }: PageProps<"/equipe"
           <h2 className="mb-4 text-lg font-semibold">{emEdicao ? `Editar ${emEdicao.nome}` : "Nova profissional"}</h2>
           <FormAcao key={editar} acao={salvarProfissional} className="grid gap-4 sm:grid-cols-2">
             <input type="hidden" name="id" value={emEdicao?.id ?? ""} />
-            <CampoFoto urlAtual={(emEdicao?.foto_path && fotos.get(emEdicao.foto_path)) || null} />
+            <CampoFoto profissionalId={emEdicao?.id} urlAtual={(emEdicao?.foto_path && fotos.get(emEdicao.foto_path)) || null} />
             <Campo rotulo="Nome">
               <input name="nome" required defaultValue={emEdicao?.nome} className={classeInput} />
             </Campo>
@@ -91,7 +90,7 @@ export default async function PaginaEquipe({ searchParams }: PageProps<"/equipe"
           <li key={p.id}>
             <Cartao className={`flex h-full flex-col gap-3 ${p.ativo ? "" : "opacity-60"}`}>
               <div className="flex items-start gap-3">
-                <FotoProfissional url={p.foto_path ? fotos.get(p.foto_path) : null} cor={p.cor} tamanho={44} />
+                <FotoDoCartao profissionalId={p.id} nome={p.nome} cor={p.cor} urlAtual={(p.foto_path && fotos.get(p.foto_path)) || null} />
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold">{p.nome}</p>
                   <p className="text-sm text-suave">{p.funcao ?? "—"}</p>

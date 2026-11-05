@@ -22,6 +22,33 @@ function lerFoto(texto: string): Buffer | "invalida" | null {
   return foto.length > 1024 * 1024 || foto[0] !== 0xff || foto[1] !== 0xd8 ? "invalida" : foto;
 }
 
+/** Grava ou remove a foto; a antiga só sai depois que a nova estiver gravada. Devolve o erro, se houver. */
+async function gravarFoto(supabase: Awaited<ReturnType<typeof criarClienteServidor>>, id: string, foto: Buffer | null): Promise<string | null> {
+  const { data: atual } = await supabase.from("profissionais").select("foto_path").eq("id", id).maybeSingle();
+  let novoCaminho: string | null = null;
+  if (foto) {
+    novoCaminho = `${id}/${crypto.randomUUID()}.jpg`;
+    const { error } = await supabase.storage.from(BUCKET_FOTOS).upload(novoCaminho, foto, { contentType: "image/jpeg" });
+    if (error) return "a foto não foi enviada. Tente de novo.";
+  }
+  const { error } = await supabase.from("profissionais").update({ foto_path: novoCaminho }).eq("id", id);
+  if (error) return "a foto não foi atualizada. Tente de novo.";
+  if (atual?.foto_path) await supabase.storage.from(BUCKET_FOTOS).remove([atual.foto_path]);
+  return null;
+}
+
+/** Foto de quem já está cadastrada: grava na hora, sem precisar salvar o formulário. */
+export async function salvarFoto(id: string, foto: string | null): Promise<{ erro?: string }> {
+  await exigirDono();
+  const lida = foto === null ? null : lerFoto(foto);
+  if (lida === "invalida") return { erro: "Foto inválida. Escolha outra imagem." };
+  const supabase = await criarClienteServidor();
+  const erro = await gravarFoto(supabase, id, lida);
+  if (erro) return { erro: erro.charAt(0).toUpperCase() + erro.slice(1) };
+  revalidatePath("/", "layout");
+  return {};
+}
+
 export async function salvarProfissional(_e: EstadoForm, dados: FormData): Promise<EstadoForm> {
   await exigirDono();
   const id = String(dados.get("id") ?? "");
@@ -42,7 +69,6 @@ export async function salvarProfissional(_e: EstadoForm, dados: FormData): Promi
 
   const fotoNova = lerFoto(String(dados.get("foto_nova") ?? ""));
   if (fotoNova === "invalida") return { erro: "Foto inválida. Escolha outra imagem." };
-  const removerFoto = dados.get("foto_remover") === "1";
 
   const supabase = await criarClienteServidor();
   const { data: salvo, error } = id
@@ -50,18 +76,10 @@ export async function salvarProfissional(_e: EstadoForm, dados: FormData): Promi
     : await supabase.from("profissionais").insert(registro).select("id").single();
   if (error || !salvo) return { erro: mensagemErro(error?.message ?? "") };
 
-  // A foto antiga só sai depois que a nova estiver gravada
-  if (fotoNova || removerFoto) {
-    const { data: atual } = await supabase.from("profissionais").select("foto_path").eq("id", salvo.id).single();
-    let novoCaminho: string | null = null;
-    if (fotoNova) {
-      novoCaminho = `${salvo.id}/${crypto.randomUUID()}.jpg`;
-      const { error: erroEnvio } = await supabase.storage.from(BUCKET_FOTOS).upload(novoCaminho, fotoNova, { contentType: "image/jpeg" });
-      if (erroEnvio) return { erro: "Os dados foram salvos, mas a foto não foi enviada. Tente de novo." };
-    }
-    const { error: erroFoto } = await supabase.from("profissionais").update({ foto_path: novoCaminho }).eq("id", salvo.id);
-    if (erroFoto) return { erro: "Os dados foram salvos, mas a foto não foi atualizada. Tente de novo." };
-    if (atual?.foto_path) await supabase.storage.from(BUCKET_FOTOS).remove([atual.foto_path]);
+  // Cadastro novo: a foto escolhida é gravada junto (quem já existe grava na hora, em salvarFoto)
+  if (fotoNova) {
+    const erroFoto = await gravarFoto(supabase, salvo.id, fotoNova);
+    if (erroFoto) return { erro: `Os dados foram salvos, mas ${erroFoto}` };
   }
 
   revalidatePath("/", "layout");
