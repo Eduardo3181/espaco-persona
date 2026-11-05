@@ -4,13 +4,16 @@ import { BotaoEnviar, FormAcao } from "@/components/formulario";
 import { BotaoLink, Campo, Cartao, Etiqueta, classeInput } from "@/components/ui";
 import { exigirDono } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
+import { FotoProfissional } from "@/components/foto-profissional";
+import { linksDasFotos } from "@/lib/fotos";
 import { salvarProfissional } from "./actions";
+import { CampoFoto } from "./campo-foto";
 
 export const metadata: Metadata = { title: "Equipe" };
 
 type Profissional = {
   id: string; nome: string; email: string | null; funcao: string | null; papel: "dono" | "profissional";
-  recebe_comissao: boolean; cor: string; ativo: boolean; usuario_id: string | null; ordem: number;
+  recebe_comissao: boolean; cor: string; ativo: boolean; usuario_id: string | null; ordem: number; foto_path: string | null;
 };
 
 export default async function PaginaEquipe({ searchParams }: PageProps<"/equipe">) {
@@ -20,6 +23,7 @@ export default async function PaginaEquipe({ searchParams }: PageProps<"/equipe"
   const supabase = await criarClienteServidor();
   const { data } = await supabase.from("profissionais").select("*").order("ativo", { ascending: false }).order("ordem").order("nome");
   const equipe = (data ?? []) as Profissional[];
+  const fotos = await linksDasFotos(supabase, equipe.map((p) => p.foto_path));
   const emEdicao = editar === "novo" ? null : equipe.find((p) => p.id === editar);
   const mostrarForm = editar === "novo" || Boolean(emEdicao);
 
@@ -39,6 +43,7 @@ export default async function PaginaEquipe({ searchParams }: PageProps<"/equipe"
           <h2 className="mb-4 text-lg font-semibold">{emEdicao ? `Editar ${emEdicao.nome}` : "Nova profissional"}</h2>
           <FormAcao key={editar} acao={salvarProfissional} className="grid gap-4 sm:grid-cols-2">
             <input type="hidden" name="id" value={emEdicao?.id ?? ""} />
+            <CampoFoto urlAtual={(emEdicao?.foto_path && fotos.get(emEdicao.foto_path)) || null} />
             <Campo rotulo="Nome">
               <input name="nome" required defaultValue={emEdicao?.nome} className={classeInput} />
             </Campo>
@@ -86,7 +91,7 @@ export default async function PaginaEquipe({ searchParams }: PageProps<"/equipe"
           <li key={p.id}>
             <Cartao className={`flex h-full flex-col gap-3 ${p.ativo ? "" : "opacity-60"}`}>
               <div className="flex items-start gap-3">
-                <span className="mt-1 size-4 shrink-0 rounded-full" style={{ background: p.cor }} aria-hidden />
+                <FotoProfissional url={p.foto_path ? fotos.get(p.foto_path) : null} cor={p.cor} tamanho={44} />
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold">{p.nome}</p>
                   <p className="text-sm text-suave">{p.funcao ?? "—"}</p>

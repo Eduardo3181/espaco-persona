@@ -9,6 +9,8 @@ import {
   HORA_ABRE, HORA_FECHA, SLOT_MIN, STATUS, dataPorExtenso, dataValida, diaMes, horariosDaGrade, paraTimestamp, partesSP, somarDias,
   type StatusAgendamento,
 } from "@/lib/agenda";
+import { FotoProfissional } from "@/components/foto-profissional";
+import { linksDasFotos } from "@/lib/fotos";
 import { MiniCalendario } from "./mini-calendario";
 
 export const metadata: Metadata = { title: "Agenda" };
@@ -41,8 +43,8 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
   const supabase = await criarClienteServidor();
   const [{ data: profs }, { data: ags }] = await Promise.all([
     ehDono
-      ? supabase.from("profissionais").select("id, nome, cor").eq("ativo", true).order("ordem").order("nome")
-      : supabase.from("profissionais").select("id, nome, cor").eq("id", eu.id),
+      ? supabase.from("profissionais").select("id, nome, cor, foto_path").eq("ativo", true).order("ordem").order("nome")
+      : supabase.from("profissionais").select("id, nome, cor, foto_path").eq("id", eu.id),
     supabase
       .from("agendamentos")
       .select("id, tipo, profissional_id, inicio, fim, status, motivo, grupo_atendimento, grupo_repeticao, clientes(nome), agendamento_servicos(ordem, servicos(nome))")
@@ -51,6 +53,7 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
       .order("inicio"),
   ]);
   const profissionais = profs ?? [];
+  const fotos = await linksDasFotos(supabase, profissionais.map((p) => p.foto_path));
   const agendamentos = (ags ?? []) as unknown as Agendamento[];
   const ativos = agendamentos.filter((a) => a.status !== "cancelado" && a.status !== "faltou");
   const desmarcados = agendamentos.filter((a) => a.status === "cancelado" || a.status === "faltou");
@@ -139,7 +142,7 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
                 className={`flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg px-4 text-sm font-semibold ${
                   p.id === profSel ? "bg-escuro text-sobre-escuro" : "border border-borda bg-cartao"
                 }`}>
-                <span className="size-3 rounded-full" style={{ background: p.cor }} aria-hidden /> {p.nome.split(" ")[0]}
+                <FotoProfissional url={p.foto_path ? fotos.get(p.foto_path) : null} cor={p.cor} tamanho={28} /> {p.nome.split(" ")[0]}
               </Link>
             ))}
           </nav>
@@ -160,7 +163,7 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
             {profissionais.map((p) => (
               <div key={p.id} className={`min-w-44 flex-1 border-r border-borda last:border-r-0 ${p.id === profSel ? "" : "hidden md:block"}`}>
                 <div className="sticky top-0 z-10 flex h-12 items-center gap-2 border-b border-borda bg-cartao px-3">
-                  <span className="size-3 shrink-0 rounded-full" style={{ background: p.cor }} aria-hidden />
+                  <FotoProfissional url={p.foto_path ? fotos.get(p.foto_path) : null} cor={p.cor} />
                   <span className="truncate text-sm font-semibold">{p.nome}</span>
                 </div>
                 <div className="relative" style={{ height: horarios.length * ALTURA_SLOT }}>
