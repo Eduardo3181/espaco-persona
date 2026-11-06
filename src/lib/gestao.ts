@@ -20,7 +20,11 @@ export const ehReceita = (g: Grupo) => g === "receita" || g === "receita_nao_ope
 export type Categoria = { id: string; nome: string; grupo: Grupo; ativo: boolean };
 export type Conta = { id: string; nome: string; saldo_inicial_centavos: number; ativo: boolean };
 export type Lancamento = {
-  id: string; categoria_id: string; conta_id: string | null; descricao: string | null; valor_centavos: number;
+  id: string; categoria_id: string; conta_id: string | null; descricao: string | null;
+  /** Visão: quanto se espera pagar ou receber */
+  valor_centavos: number;
+  /** Realidade: quanto foi de fato (vazio = ainda não informado) */
+  valor_real_centavos: number | null;
   vencimento: string; pagamento: string | null; repeticao_id: string | null;
 };
 export type Automatico = {
@@ -29,6 +33,9 @@ export type Automatico = {
 };
 export type Posicao = { inicio: string | null; saldo: number; clientes_devendo: number; comissoes_a_pagar: number };
 export type Meta = { id: string; ano: number; meta_vendas_centavos: number; lucro_desejado_percentual: number };
+
+/** O que vale nas contas: a Realidade, quando informada; senão, a Visão. */
+export const valorEfetivo = (l: Pick<Lancamento, "valor_centavos" | "valor_real_centavos">) => l.valor_real_centavos ?? l.valor_centavos;
 
 export type Status = "pago" | "aguardando" | "atrasado";
 
@@ -53,7 +60,7 @@ export function calcularResultado(lancamentos: Lancamento[], automaticos: Automa
   };
   for (const l of lancamentos) {
     const g = grupoDe.get(l.categoria_id);
-    if (g) soma[g] += l.valor_centavos;
+    if (g) soma[g] += valorEfetivo(l);
   }
   const vendas = automaticos.reduce((s, a) => s + a.faturamento, 0);
   const comissoes = automaticos.reduce((s, a) => s + a.comissoes, 0);
@@ -84,8 +91,8 @@ export function caixaDoMes(mes: string, lancamentos: Lancamento[], automaticos: 
     if (!l.pagamento || !l.pagamento.startsWith(mes) || l.pagamento < inicio) continue;
     const g = grupoDe.get(l.categoria_id);
     if (!g) continue;
-    if (ehReceita(g)) entradas += l.valor_centavos;
-    else saidas += l.valor_centavos;
+    if (ehReceita(g)) entradas += valorEfetivo(l);
+    else saidas += valorEfetivo(l);
   }
   return { entradas, saidas };
 }
@@ -99,7 +106,7 @@ export function maioresDespesas(lancamentos: Lancamento[], automaticos: Automati
   const totais = new Map<string, number>();
   for (const l of lancamentos) {
     const c = nomes.get(l.categoria_id);
-    if (c && !ehReceita(c.grupo)) totais.set(c.nome, (totais.get(c.nome) ?? 0) + l.valor_centavos);
+    if (c && !ehReceita(c.grupo)) totais.set(c.nome, (totais.get(c.nome) ?? 0) + valorEfetivo(l));
   }
   totais.set("Comissões", automaticos.reduce((s, a) => s + a.comissoes, 0));
   totais.set("Taxas da maquininha", automaticos.reduce((s, a) => s + a.taxas, 0));

@@ -6,7 +6,7 @@ import { somarDias } from "@/lib/agenda";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import {
   MESES_CURTOS, caixaDoMes, calcularResultado, contasDaMeta, ehReceita, maioresDespesas, mesesDoAno, porcentagem,
-  statusDe, type Categoria, type Lancamento, type Resultado,
+  statusDe, valorEfetivo, type Categoria, type Lancamento, type Resultado,
 } from "@/lib/gestao";
 import { ListaComBarra } from "../relatorios/graficos";
 import { buscarAutomaticos, buscarCadastros, buscarLancamentosDoPeriodo, buscarMeta, buscarPosicao } from "./dados";
@@ -80,7 +80,7 @@ function pendentes(lancamentos: Lancamento[], categorias: Categoria[], receita: 
     const g = grupoDe.get(l.categoria_id);
     return !l.pagamento && g && ehReceita(g) === receita;
   });
-  const soma = (f: (l: Lancamento) => boolean) => abertos.filter(f).reduce((s, l) => s + l.valor_centavos, 0);
+  const soma = (f: (l: Lancamento) => boolean) => abertos.filter(f).reduce((s, l) => s + valorEfetivo(l), 0);
   return {
     hoje: soma((l) => l.vencimento === hoje),
     noMes: soma((l) => l.vencimento >= hoje && l.vencimento.slice(0, 7) === hoje.slice(0, 7)),

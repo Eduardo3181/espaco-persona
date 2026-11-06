@@ -20,8 +20,11 @@ begin
   insert into public.fin_lancamentos (categoria_id, conta_id, valor_centavos, vencimento, pagamento) values
     (v_desp, v_conta, 20000, '2031-02-10', '2031-02-10'),   -- saiu
     (v_rec,  v_conta,  5000, '2031-02-11', '2031-02-11'),   -- entrou
+    (v_desp, v_conta,  3000, '2031-02-12', '2031-02-12'),   -- visão 30,00; realidade 10,00 (abaixo)
     (v_desp, v_conta,  7000, '2031-02-20', null),           -- em aberto: não mexe no dinheiro
     (v_desp, v_conta,  9000, '2031-01-20', '2031-01-20');   -- antes do início: não conta
+
+  update public.fin_lancamentos set valor_real_centavos = 1000 where categoria_id = v_desp and valor_centavos = 3000;
 
   insert into public.comandas (status, data_atendimento, total_itens_centavos, total_taxas_centavos, total_comissoes_centavos)
     values ('fechada', '2031-02-05', 50000, 1000, 20000) returning id into v_comanda;
@@ -37,9 +40,9 @@ begin
 
   v_base := (public.gestao_posicao('2031-02-01') ->> 'saldo')::bigint;  -- só saldos iniciais (nada aconteceu em 01/02)
   v_saldo := (public.gestao_posicao('2031-02-28') ->> 'saldo')::bigint;
-  -- +400,00 pix − 10,00 taxa − 200,00 profissional − 200,00 aluguel + 50,00 rendimento = +40,00
-  r := r || format(' dinheiro no mês=%s %s;', v_saldo - v_base, case when v_saldo - v_base = 4000 then 'OK' else 'FALHA (esperado 4000)' end);
-  if v_saldo - v_base <> 4000 then falhou := true; end if;
+  -- +400,00 pix − 10,00 taxa − 200,00 profissional − 200,00 aluguel + 50,00 rendimento − 10,00 (realidade) = +30,00
+  r := r || format(' dinheiro no mês=%s %s;', v_saldo - v_base, case when v_saldo - v_base = 3000 then 'OK' else 'FALHA (esperado 3000)' end);
+  if v_saldo - v_base <> 3000 then falhou := true; end if;
 
   v_auto := public.gestao_automaticos('2031-02-01', '2031-02-28') -> 0;
   n := (v_auto ->> 'faturamento')::int;

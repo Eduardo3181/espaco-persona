@@ -10,7 +10,7 @@ import { desfazerPago, excluirLancamento, marcarPago, salvarLancamento } from ".
 
 type Filtros = { mes: string; tipo: string; situacao: string; editar?: string };
 
-const CAMPOS = "id, categoria_id, conta_id, descricao, valor_centavos, vencimento, pagamento, repeticao_id";
+const CAMPOS = "id, categoria_id, conta_id, descricao, valor_centavos, valor_real_centavos, vencimento, pagamento, repeticao_id";
 
 function SeloStatus({ status, receita }: { status: Status; receita: boolean }) {
   if (status === "pago") return <Etiqueta tom="sucesso">{receita ? "Recebido" : "Pago"}</Etiqueta>;
@@ -44,7 +44,13 @@ export async function AbaLancamentos({ mes, tipo, situacao, editar }: Filtros) {
   const { count: atrasados } = await supabase.from("fin_lancamentos").select("id", { count: "exact", head: true })
     .is("pagamento", null).lt("vencimento", hoje);
 
-  const somaTipo = (receita: boolean) => lista.filter((l) => ehReceita(categoriaDe.get(l.categoria_id)!.grupo) === receita).reduce((s, l) => s + l.valor_centavos, 0);
+  const totais = (receita: boolean) => {
+    const doTipo = lista.filter((l) => ehReceita(categoriaDe.get(l.categoria_id)!.grupo) === receita);
+    const visao = doTipo.reduce((s, l) => s + l.valor_centavos, 0);
+    const realidade = doTipo.reduce((s, l) => s + (l.valor_real_centavos ?? 0), 0);
+    return { qtd: doTipo.length, visao, realidade, diferenca: realidade - visao };
+  };
+  const quadros = [{ titulo: "A pagar", ...totais(false) }, { titulo: "A receber", ...totais(true) }].filter((q) => q.qtd > 0);
   const consultaBase = `aba=lancamentos&mes=${mes}&tipo=${tipo}&situacao=${situacao}`;
   const volta = `/gestao?${consultaBase}`;
   const emEdicao = editar && editar !== "novo"
@@ -98,10 +104,13 @@ export async function AbaLancamentos({ mes, tipo, situacao, editar }: Filtros) {
         <button className={classeBotao("secundario")}>Filtrar</button>
       </form>
 
-      <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-        <span>A receber e recebido: <strong className="text-sucesso">{formatarReais(somaTipo(true))}</strong></span>
-        <span>A pagar e pago: <strong className="text-erro">{formatarReais(somaTipo(false))}</strong></span>
-      </div>
+      {quadros.map((q) => (
+        <div key={q.titulo} className="grid grid-cols-3 gap-3 rounded-xl border border-borda bg-cartao p-3 text-sm">
+          <p><span className="block text-xs text-suave">{q.titulo}: visão</span><strong>{formatarReais(q.visao)}</strong></p>
+          <p><span className="block text-xs text-suave">Realidade</span><strong>{formatarReais(q.realidade)}</strong></p>
+          <p><span className="block text-xs text-suave">Diferença</span><strong>{formatarReais(q.diferenca)}</strong></p>
+        </div>
+      ))}
 
       {lista.length === 0 ? (
         <Vazio>Nenhum lançamento aqui.</Vazio>
@@ -120,7 +129,18 @@ export async function AbaLancamentos({ mes, tipo, situacao, editar }: Filtros) {
                     {l.repeticao_id && " · repete"}
                   </p>
                 </div>
-                <span className={`font-semibold ${receita ? "text-sucesso" : ""}`}>{receita ? "+ " : "− "}{formatarReais(l.valor_centavos)}</span>
+                <div className="flex gap-4 text-right text-sm">
+                  <p><span className="block text-xs text-suave">Visão</span><span className={`font-semibold ${receita ? "text-sucesso" : ""}`}>{receita ? "+ " : "− "}{formatarReais(l.valor_centavos)}</span></p>
+                  <p>
+                    <span className="block text-xs text-suave">Realidade</span>
+                    {l.valor_real_centavos === null
+                      ? <span className="text-suave">–</span>
+                      : <span className="font-semibold">{formatarReais(l.valor_real_centavos)}</span>}
+                  </p>
+                  {l.valor_real_centavos !== null && (
+                    <p><span className="block text-xs text-suave">Diferença</span><span>{formatarReais(l.valor_real_centavos - l.valor_centavos)}</span></p>
+                  )}
+                </div>
                 <SeloStatus status={statusDe(l, hoje)} receita={receita} />
                 <div className="flex items-center gap-1">
                   {l.pagamento ? (
@@ -180,8 +200,11 @@ function FormLancamento({ chave, categorias, contas, emEdicao, volta, hoje }: {
         <Campo rotulo="Descrição (opcional)">
           <input name="descricao" defaultValue={emEdicao?.descricao ?? ""} placeholder="Ex.: conta de novembro" className={classeInput} />
         </Campo>
-        <Campo rotulo="Valor (R$)">
+        <Campo rotulo="Visão (R$)" dica="Quanto você espera pagar ou receber.">
           <input name="valor" inputMode="decimal" required placeholder="0,00" defaultValue={emEdicao ? centavosParaCampo(emEdicao.valor_centavos) : ""} className={classeInput} />
+        </Campo>
+        <Campo rotulo="Realidade (R$)" dica="Quanto foi de fato. Preenchida, é ela que vale nas contas.">
+          <input name="valor_real" inputMode="decimal" placeholder="0,00" defaultValue={emEdicao?.valor_real_centavos != null ? centavosParaCampo(emEdicao.valor_real_centavos) : ""} className={classeInput} />
         </Campo>
         <Campo rotulo="Conta (opcional)">
           <select name="conta_id" defaultValue={emEdicao?.conta_id ?? ""} className={classeInput}>

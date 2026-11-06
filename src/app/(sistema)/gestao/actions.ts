@@ -26,9 +26,12 @@ export async function salvarLancamento(_e: EstadoForm, dados: FormData): Promise
   const vencimento = texto(dados, "vencimento");
   const pagamento = texto(dados, "pagamento") || null;
   const repetir = Number(texto(dados, "repetir") || "1");
+  const textoReal = texto(dados, "valor_real");
+  const valor_real_centavos = textoReal ? reaisParaCentavos(textoReal) : null;
 
   if (!categoria_id) return { erro: "Escolha a categoria." };
-  if (!valor_centavos) return { erro: "Valor inválido. Use o formato 120,00." };
+  if (!valor_centavos) return { erro: "Visão inválida. Use o formato 120,00." };
+  if (textoReal && valor_real_centavos === null) return { erro: "Realidade inválida. Use o formato 120,00." };
   if (!dataValida(vencimento)) return { erro: "Informe a data de vencimento." };
   if (pagamento && !dataValida(pagamento)) return { erro: "Data de pagamento inválida." };
   if (pagamento && pagamento > hojeISO()) return { erro: "A data de pagamento não pode ser no futuro." };
@@ -36,7 +39,7 @@ export async function salvarLancamento(_e: EstadoForm, dados: FormData): Promise
 
   const registro = {
     categoria_id, conta_id: texto(dados, "conta_id") || null, descricao: texto(dados, "descricao") || null,
-    valor_centavos, vencimento, pagamento,
+    valor_centavos, valor_real_centavos, vencimento, pagamento,
   };
   const supabase = await criarClienteServidor();
   if (id) {
@@ -46,7 +49,8 @@ export async function salvarLancamento(_e: EstadoForm, dados: FormData): Promise
     // Conta que se repete: as próximas parcelas nascem em aberto
     const repeticao_id = repetir > 1 ? crypto.randomUUID() : null;
     const linhas = Array.from({ length: repetir }, (_, i) => ({
-      ...registro, repeticao_id, vencimento: somarMeses(vencimento, i), pagamento: i === 0 ? pagamento : null,
+      ...registro, repeticao_id, vencimento: somarMeses(vencimento, i),
+      pagamento: i === 0 ? pagamento : null, valor_real_centavos: i === 0 ? valor_real_centavos : null,
     }));
     const { error } = await supabase.from("fin_lancamentos").insert(linhas);
     if (error) return { erro: "Não foi possível salvar. Tente de novo." };

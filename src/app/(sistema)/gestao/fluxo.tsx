@@ -3,7 +3,7 @@ import { formatarDiaISO, formatarReais, hojeISO } from "@/lib/formato";
 import { somarDias } from "@/lib/agenda";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import {
-  GRUPOS, MESES_CURTOS, caixaDoMes, calcularResultado, ehReceita, mesesDoAno, type Categoria, type Lancamento,
+  GRUPOS, MESES_CURTOS, caixaDoMes, calcularResultado, ehReceita, mesesDoAno, valorEfetivo, type Categoria, type Lancamento,
 } from "@/lib/gestao";
 import { buscarAutomaticos, buscarCadastros, buscarLancamentosDoPeriodo, buscarPosicao } from "./dados";
 import { AvisoInicio, SeletorAno } from "./painel";
@@ -93,7 +93,7 @@ function VisaoGeral({ meses, lancamentos, categorias, automaticos, inicio, saldo
   const grupoDe = new Map(categorias.map((c) => [c.id, c.grupo]));
   const emAberto = (receita: boolean) => meses.map((m) => lancamentos
     .filter((l) => !l.pagamento && l.vencimento.startsWith(m) && ehReceita(grupoDe.get(l.categoria_id) ?? "despesa_fixa") === receita)
-    .reduce((s, l) => s + l.valor_centavos, 0));
+    .reduce((s, l) => s + valorEfetivo(l), 0));
   const aReceber = emAberto(true);
   const aPagar = emAberto(false);
 
@@ -123,7 +123,7 @@ function PorCategoria({ meses, lancamentos, categorias, automaticos }: {
 }) {
   const doMes = (m: string) => calcularResultado(lancamentos.filter((l) => l.vencimento.startsWith(m)), automaticos.filter((a) => a.mes === m), categorias);
   const resultados = meses.map(doMes);
-  const porCategoria = (id: string) => meses.map((m) => lancamentos.filter((l) => l.categoria_id === id && l.vencimento.startsWith(m)).reduce((s, l) => s + l.valor_centavos, 0));
+  const porCategoria = (id: string) => meses.map((m) => lancamentos.filter((l) => l.categoria_id === id && l.vencimento.startsWith(m)).reduce((s, l) => s + valorEfetivo(l), 0));
   const linhasGrupo = (grupo: (typeof GRUPOS)[number]["id"]): Linha[] => categorias
     .filter((c) => c.grupo === grupo)
     .map((c) => ({ rotulo: c.nome, valores: porCategoria(c.id) }))
