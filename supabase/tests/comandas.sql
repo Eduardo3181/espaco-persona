@@ -9,7 +9,7 @@ declare
   v_val_user uuid := gen_random_uuid();
   v_prof uuid; v_outra uuid; v_cliente uuid;
   v_escova uuid; v_color uuid; v_cat_color uuid; v_cat_prod uuid; v_prod uuid;
-  v_comanda uuid; v_item_di uuid; v_item_val uuid;
+  v_comanda uuid; v_item_di uuid; v_item_val uuid; v_taxa_esperada int;
   v_json jsonb; n int; v_num numeric; v_txt text;
   r text := ''; falhou boolean := false;
 begin
@@ -62,9 +62,11 @@ begin
   r := r || format(' caixinha=%s %s;', n, case when n = 1000 then 'OK' else 'FALHA' end);
   if n <> 1000 then falhou := true; end if;
 
-  select total_taxas_centavos into n from public.comandas where id = v_comanda;   -- 465,00 × 3,49% = 16,23
-  r := r || format(' taxa=%s %s;', n, case when n = 1623 then 'OK' else 'FALHA (esperado 1623)' end);
-  if n <> 1623 then falhou := true; end if;
+  -- 465,00 no crédito × a taxa atual de Configurações (o dono pode mudar a taxa)
+  select round(46500 * taxa_credito / 100) into v_taxa_esperada from public.configuracoes;
+  select total_taxas_centavos into n from public.comandas where id = v_comanda;
+  r := r || format(' taxa=%s %s;', n, case when n = v_taxa_esperada then 'OK' else format('FALHA (esperado %s)', v_taxa_esperada) end);
+  if n <> v_taxa_esperada then falhou := true; end if;
 
   select estoque into n from public.produtos where id = v_prod;
   r := r || format(' estoque=%s %s;', n, case when n = 3 then 'OK' else 'FALHA' end);
