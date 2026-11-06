@@ -77,11 +77,11 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - Visão da profissional: cartões com comissões, caixinhas, vales e "você recebe em dd/mm", mais um extrato do período
 
 ### 4.6 Despesas
-- **Não haverá módulo de despesas** (decisão do dono em 16/10/2026): o sistema não calcula despesas do salão
+- Despesas e contas a pagar ficam na aba **Gestão** (seção 4.9), desde 06/11/2026; a decisão anterior de não controlar despesas foi revista pelo dono
 
 ### 4.7 Relatórios (só dono)
 - Período: dia, semana, mês ou personalizado
-- **Visão geral**: vendas, comissões, taxas e resultado (vendas − comissões − taxas, antes das despesas, que ficam fora do sistema); "para onde vai o dinheiro"
+- **Visão geral**: vendas, comissões, taxas e resultado (vendas − comissões − taxas, antes das despesas, que ficam na aba Gestão); "para onde vai o dinheiro"
 - **Vendas**: faturamento por dia (gráfico de barras), por item (serviços/produtos/pacotes), por forma de pagamento e por profissional
 - Caixinhas **não** entram no faturamento
 
@@ -92,6 +92,10 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - Dias de pagamento de comissões (padrão: dias 1 e 16)
 - Taxas da maquininha por forma de pagamento (padrão: débito 1,99%, crédito 3,49%, Pix 0%)
 - Modelos de mensagem de WhatsApp: confirmação de agendamento e aniversário, com variáveis {cliente}, {data}, {hora}, {profissional}. Na fase 1, gerar link `wa.me` com o texto pronto; envio automático fica para depois
+
+### 4.9 Gestão (só dono)
+- Abas: **Painel**, **Lançamentos**, **Fluxo de caixa** (visão geral e por categoria), **Análise** (dois períodos), **Metas** e **Plano de contas** (contas, data de início e categorias)
+- Vendas, taxas e comissões vêm sozinhas das comandas e dos pagamentos; o resto é lançado à mão, com opção de repetir todo mês
 
 ## 5. Regras de negócio
 
@@ -115,7 +119,7 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 ### 5.4 Financeiro
 - Faturamento = itens das comandas fechadas (sem caixinhas)
 - Taxa da maquininha calculada por forma de pagamento e registrada na comanda
-- Resultado = faturamento − comissões − taxas (despesas não são controladas no sistema)
+- Em Relatórios: resultado = faturamento − comissões − taxas. Em Gestão: desconta também as despesas lançadas
 
 ## 6. Identidade visual
 
@@ -165,7 +169,7 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - **Importação**: 159 serviços e 524 clientes vieram do **Salão Soft** (sem telefones). Planilhas ficam em `/importacao` (fora do Git, LGPD)
 - **Agenda**: salão abre **todos os dias, 08:00–20:00**; profissionais criam/alteram só a própria agenda; status "Cancelou" e "Faltou" ficam no histórico; bloqueios podem repetir (diário/semanal)
 - **Comandas**: profissionais abrem a comanda e lançam itens **em nome próprio, sem ver valores**; só o dono altera valores, recebe, fecha, reabre e cancela. Formas: Pix, crédito, débito, dinheiro e "saldo na casa" (usa crédito ou deixa a cliente devendo). Taxa de crédito única
-- **Despesas**: não são controladas no sistema; relatórios mostram vendas, comissões, taxas e o que sobra para o salão
+- **Despesas (revisto em 06/11/2026)**: ficam na aba Gestão; Relatórios continua mostrando vendas, comissões, taxas e o que sobra para o salão
 - **LGPD**: excluir cliente apaga cadastro, ficha, anotações, saldo e agendamentos; comandas fechadas ficam no financeiro sem o nome
 - **Testes de segurança** em `supabase/tests/*.sql` (rodam e desfazem tudo): `npx supabase db query --linked -f supabase/tests/<arquivo>.sql`
 - **Configurações**: acesso de profissionais continua pelo e-mail em Equipe + criar o login no painel do Supabase (sem chave secreta no sistema). Dias de pagamento são **dois dias do mês configuráveis** (padrão 1 e 16): cada período vai de um dia de pagamento até a véspera do seguinte
@@ -180,3 +184,4 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - **Comanda única por cliente no dia (04/11/2026)**: ao abrir a comanda de um horário, entram nela os outros horários da mesma cliente no mesmo dia ainda não atendidos, mesmo agendados separadamente; com comanda aberta da cliente no dia, o horário entra nela. Serviço igual já lançado à mão não duplica. Depois de fechada, um novo horário abre outra comanda
 - **Cobrança junta (05/11/2026)**: comandas abertas do mesmo cadastro de cliente no mesmo dia viram uma só (fica a mais antiga; as outras ficam canceladas com motivo "Juntada à comanda #N"). A junção roda ao abrir a comanda e ao fechar, e traz também os horários do dia ainda não atendidos. Comandas de dias diferentes continuam separadas, com aviso. Clientes com o mesmo nome em cadastros diferentes não se misturam
 - **Foto da equipe (05/11/2026)**: foto opcional em Equipe, recortada no navegador em quadrado (320 px) e mostrada em círculo na agenda, com a borda na cor da profissional. Fica em espaço privado do Storage (`fotos-profissionais`), com links temporários; só o dono envia ou remove
+- **Gestão financeira (06/11/2026)**: inspirada numa planilha mostrada em vídeo pelo dono, feita do zero com a identidade do salão. Tabelas `fin_*`, só dono; funções `gestao_automaticos` e `gestao_posicao`. **Lucro**: vendas, taxas e comissões pelo dia do atendimento; lançamentos pelo vencimento (contas futuras só entram no Painel quando vencem). **Dinheiro disponível**: total de todas as contas, a partir de `configuracoes.fin_data_inicio`; cartão conta como recebido no dia do atendimento; saldo na casa usado não é dinheiro novo, crédito manual positivo no saldo da cliente conta como dinheiro que entrou; caixinha entra no caixa e sai ao registrar o pagamento da profissional. Orçamento = meta de vendas − lucro esperado. Teste: `supabase/tests/gestao.sql`
