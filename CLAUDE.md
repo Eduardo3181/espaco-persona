@@ -84,6 +84,7 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - **Visão geral**: vendas, comissões, taxas e resultado (vendas − comissões − taxas, antes das despesas, que ficam na aba Gestão); "para onde vai o dinheiro"
 - **Vendas**: faturamento por dia (gráfico de barras), por item (serviços/produtos/pacotes), por forma de pagamento e por profissional
 - Caixinhas **não** entram no faturamento
+- **Agendado a entrar** (06/11/2026), ao lado de Vendas: soma o preço atual dos serviços dos horários que ainda não viraram comanda (aguardando ou confirmado), de hoje em diante, no período escolhido e em hoje, esta semana e este mês. Não entra em Vendas nem no resultado e não prevê o desconto do Pix
 
 ### 4.8 Configurações (só dono)
 - Usuários e acessos (convidar, definir perfil, desativar)

@@ -20,6 +20,8 @@ type Relatorio = {
   por_profissional: { profissional_id: string; nome: string; faturamento: number; comissao: number; atendimentos: number; caixinhas: number }[];
 };
 
+type Previsto = { valor: number; atendimentos: number };
+
 const NOME_FORMA: Record<string, string> = { pix: "Pix", credito: "Crédito", debito: "Débito", dinheiro: "Dinheiro", saldo: "Saldo na casa" };
 
 function intervalo(modo: Modo, ref: string, de?: string, ate?: string) {
@@ -55,7 +57,20 @@ export default async function PaginaRelatorios({ searchParams }: PageProps<"/rel
   const { inicio, fim, titulo } = intervalo(modo, ref, sp.de as string | undefined, sp.ate as string | undefined);
 
   const supabase = await criarClienteServidor();
-  const { data } = await supabase.rpc("relatorio_vendas", { p_inicio: inicio, p_fim: fim });
+  const hoje = hojeISO();
+  const semana = intervalo("semana", hoje);
+  const mes = intervalo("mes", hoje);
+  const previstoDe = async (de: string, ate: string) => {
+    const { data: linha } = await supabase.rpc("previsto_agendamentos", { p_inicio: de, p_fim: ate });
+    return (linha ?? { valor: 0, atendimentos: 0 }) as Previsto;
+  };
+  const [{ data }, previsto, previstoHoje, previstoSemana, previstoMes] = await Promise.all([
+    supabase.rpc("relatorio_vendas", { p_inicio: inicio, p_fim: fim }),
+    previstoDe(inicio, fim),
+    previstoDe(hoje, hoje),
+    previstoDe(semana.inicio, semana.fim),
+    previstoDe(mes.inicio, mes.fim),
+  ]);
   const r = data as Relatorio | null;
   const t = r?.totais ?? { faturamento: 0, descontos: 0, caixinhas: 0, taxas: 0, comissoes: 0, comandas: 0, clientes: 0 };
   const resultado = t.faturamento - t.comissoes - t.taxas;
@@ -99,6 +114,18 @@ export default async function PaginaRelatorios({ searchParams }: PageProps<"/rel
       {/* Visão geral */}
       <section aria-label="Visão geral" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Indicador rotulo="Vendas (faturamento)" valor={formatarReais(t.faturamento)} destaque dica={t.descontos > 0 ? `já sem ${formatarReais(t.descontos)} de desconto do Pix` : undefined} />
+        <div className="rounded-xl border border-rose-claro bg-cartao p-3">
+          <p className="text-xs text-suave">Agendado a entrar</p>
+          <p className="mt-1 text-xl font-bold">{formatarReais(previsto.valor)}</p>
+          <p className="text-[11px] text-suave">
+            {previsto.atendimentos === 1 ? "1 horário" : `${previsto.atendimentos} horários`} neste período, de hoje em diante
+          </p>
+          <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-2 border-t border-borda pt-2 text-xs">
+            <dt className="text-suave">Hoje</dt><dd className="text-right font-semibold">{formatarReais(previstoHoje.valor)}</dd>
+            <dt className="text-suave">Esta semana</dt><dd className="text-right font-semibold">{formatarReais(previstoSemana.valor)}</dd>
+            <dt className="text-suave">Este mês</dt><dd className="text-right font-semibold">{formatarReais(previstoMes.valor)}</dd>
+          </dl>
+        </div>
         <Indicador rotulo="Comissões" valor={formatarReais(t.comissoes)} />
         <Indicador rotulo="Taxas da maquininha" valor={formatarReais(t.taxas)} />
         <Indicador rotulo="Resultado" valor={formatarReais(resultado)} destaque dica="vendas − comissões − taxas" />
