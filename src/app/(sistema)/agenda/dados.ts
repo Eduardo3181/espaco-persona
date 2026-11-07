@@ -12,16 +12,24 @@ export async function profissionaisDaAgenda(supabase: Supabase, eu: Eu) {
   return data ?? [];
 }
 
+/** Categorias que cada profissional não pode lançar: { profissional: [categorias] } */
+export async function categoriasBloqueadas(supabase: Supabase) {
+  const { data } = await supabase.from("profissional_categorias_bloqueadas").select("profissional_id, categoria_id");
+  const mapa: Record<string, string[]> = {};
+  for (const b of data ?? []) (mapa[b.profissional_id] ??= []).push(b.categoria_id);
+  return mapa;
+}
+
 /** Serviços ativos com a categoria, para escolher no agendamento. */
 export async function servicosParaAgenda(supabase: Supabase, incluirIds: string[] = []) {
   const { data } = await supabase
     .from("servicos")
-    .select("id, nome, duracao_min, preco_centavos, ativo, categorias(nome)")
+    .select("id, nome, duracao_min, preco_centavos, ativo, categoria_id, categorias(nome)")
     .order("nome");
-  type Linha = { id: string; nome: string; duracao_min: number; preco_centavos: number; ativo: boolean; categorias: { nome: string } | null };
+  type Linha = { id: string; nome: string; duracao_min: number; preco_centavos: number; ativo: boolean; categoria_id: string; categorias: { nome: string } | null };
   return ((data ?? []) as unknown as Linha[])
     .filter((s) => s.ativo || incluirIds.includes(s.id))
-    .map((s) => ({ id: s.id, nome: s.nome, duracao_min: s.duracao_min, preco_centavos: s.preco_centavos, categoria: s.categorias?.nome ?? "Outros" }))
+    .map((s) => ({ id: s.id, nome: s.nome, duracao_min: s.duracao_min, preco_centavos: s.preco_centavos, categoria_id: s.categoria_id, categoria: s.categorias?.nome ?? "Outros" }))
     .sort((a, b) => a.categoria.localeCompare(b.categoria, "pt-BR") || a.nome.localeCompare(b.nome, "pt-BR"));
 }
 

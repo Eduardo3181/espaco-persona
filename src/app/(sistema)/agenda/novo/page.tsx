@@ -5,7 +5,7 @@ import { criarClienteServidor } from "@/lib/supabase/server";
 import { hojeISO } from "@/lib/formato";
 import { dataValida } from "@/lib/agenda";
 import { FormAgendamento } from "../form-agendamento";
-import { profissionaisDaAgenda, servicosParaAgenda } from "../dados";
+import { profissionaisDaAgenda, categoriasBloqueadas, servicosParaAgenda } from "../dados";
 
 export const metadata: Metadata = { title: "Novo agendamento" };
 
@@ -13,7 +13,7 @@ export default async function NovoAgendamento({ searchParams }: PageProps<"/agen
   const { profissional: eu } = await exigirEquipe();
   const sp = await searchParams;
   const supabase = await criarClienteServidor();
-  const [profissionais, servicos] = await Promise.all([profissionaisDaAgenda(supabase, eu), servicosParaAgenda(supabase)]);
+  const [profissionais, servicos, bloqueios] = await Promise.all([profissionaisDaAgenda(supabase, eu), servicosParaAgenda(supabase), categoriasBloqueadas(supabase)]);
 
   const data = dataValida(sp.data) ? sp.data : hojeISO();
   const hora = typeof sp.hora === "string" && /^\d{2}:\d{2}$/.test(sp.hora) ? sp.hora : "09:00";
@@ -33,6 +33,7 @@ export default async function NovoAgendamento({ searchParams }: PageProps<"/agen
         profissionais={profissionais}
         podeEscolherProf={eu.papel === "dono"}
         servicos={servicos}
+        bloqueios={bloqueios}
         inicial={{ profissional_id: prof, cliente, data, hora, servicos: [] }}
         voltarHref={`/agenda?data=${data}${prof ? `&prof=${prof}` : ""}`}
       />

@@ -5,7 +5,7 @@ import { exigirEquipe } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import { partesSP } from "@/lib/agenda";
 import { FormAgendamento } from "../../form-agendamento";
-import { horariosAbertosDaSerie, profissionaisDaAgenda, servicosParaAgenda } from "../../dados";
+import { horariosAbertosDaSerie, profissionaisDaAgenda, categoriasBloqueadas, servicosParaAgenda } from "../../dados";
 
 export const metadata: Metadata = { title: "Remarcar agendamento" };
 
@@ -22,9 +22,10 @@ export default async function EditarAgendamento({ params }: PageProps<"/agenda/[
   if (a.tipo !== "atendimento" || a.status === "em_atendimento" || a.status === "concluido") redirect(`/agenda/${id}`);
 
   const servicosAg = [...(a.agendamento_servicos as { ordem: number; servico_id: string }[])].sort((x, y) => x.ordem - y.ordem).map((s) => s.servico_id);
-  const [profissionais, servicos] = await Promise.all([
+  const [profissionais, servicos, bloqueios] = await Promise.all([
     profissionaisDaAgenda(supabase, eu),
     servicosParaAgenda(supabase, servicosAg),
+    categoriasBloqueadas(supabase),
   ]);
   const horariosDaSerie = a.grupo_repeticao
     ? (await horariosAbertosDaSerie(supabase, a.grupo_repeticao, a.id, a.profissional_id)).length
@@ -39,6 +40,7 @@ export default async function EditarAgendamento({ params }: PageProps<"/agenda/[
         profissionais={profissionais}
         podeEscolherProf={eu.papel === "dono"}
         servicos={servicos}
+        bloqueios={bloqueios}
         inicial={{
           id: a.id,
           profissional_id: a.profissional_id,

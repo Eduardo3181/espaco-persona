@@ -14,6 +14,7 @@ import {
   alterarValorItem, cancelarComanda, reabrirComanda, removerItem, trocarCliente,
 } from "../actions";
 import { AdicionarItem } from "./adicionar-item";
+import { categoriasBloqueadas } from "../../agenda/dados";
 import { Fechamento, type ItemFechamento } from "./fechamento";
 
 export const metadata: Metadata = { title: "Comanda" };
@@ -49,7 +50,7 @@ function diaDoAtendimento(inicioAgenda: string | null, salvo: string | null) {
 async function catalogo(supabase: Supabase) {
   const [{ data: servs }, { data: prods }, { data: profs }] = await Promise.all([
     supabase.from("servicos").select("id, nome, ativo, preco_centavos, duracao_min, categoria_id, categorias(nome)").eq("ativo", true).order("nome"),
-    supabase.from("produtos").select("id, nome, ativo, preco_centavos, categorias(nome)").eq("ativo", true).order("nome"),
+    supabase.from("produtos").select("id, nome, ativo, preco_centavos, categoria_id, categorias(nome)").eq("ativo", true).order("nome"),
     supabase.from("profissionais").select("id, nome, recebe_comissao").eq("ativo", true).order("ordem").order("nome"),
   ]);
   type S = { id: string; nome: string; preco_centavos: number; duracao_min?: number; categoria_id: string; categorias: { nome: string } | null };
@@ -57,8 +58,9 @@ async function catalogo(supabase: Supabase) {
     a.grupo.localeCompare(b.grupo, "pt-BR") || a.nome.localeCompare(b.nome, "pt-BR");
   return {
     servicos: ((servs ?? []) as unknown as S[]).map((s) => ({ id: s.id, nome: s.nome, grupo: s.categorias?.nome ?? "Outros", preco_centavos: s.preco_centavos, duracao_min: s.duracao_min, categoria_id: s.categoria_id })).sort(ordenar),
-    produtos: ((prods ?? []) as unknown as S[]).map((s) => ({ id: s.id, nome: s.nome, grupo: s.categorias?.nome ?? "Outros", preco_centavos: s.preco_centavos })).sort(ordenar),
+    produtos: ((prods ?? []) as unknown as S[]).map((s) => ({ id: s.id, nome: s.nome, grupo: s.categorias?.nome ?? "Outros", preco_centavos: s.preco_centavos, categoria_id: s.categoria_id })).sort(ordenar),
     profissionais: profs ?? [],
+    bloqueios: await categoriasBloqueadas(supabase),
   };
 }
 
@@ -234,7 +236,7 @@ async function ComandaDono({ id, supabase, acabouDeFechar, juntada }: { id: stri
           )}
           {aberta && (
             <AdicionarItem comandaId={c.id} servicos={cat.servicos} produtos={cat.produtos}
-              profissionais={cat.profissionais} podeEscolherProf profPadrao={itens[0]?.profissional_id ?? ""} />
+              profissionais={cat.profissionais} podeEscolherProf profPadrao={itens[0]?.profissional_id ?? ""} bloqueios={cat.bloqueios} />
           )}
         </Cartao>
 
@@ -389,7 +391,7 @@ async function ComandaEquipe({ id, supabase, euId }: { id: string; supabase: Sup
           </ul>
         )}
         <AdicionarItem comandaId={c.id} servicos={cat.servicos} produtos={cat.produtos}
-          profissionais={[]} podeEscolherProf={false} profPadrao={euId} />
+          profissionais={[]} podeEscolherProf={false} profPadrao={euId} bloqueios={cat.bloqueios} />
         <p className="text-xs text-suave">Os itens entram em seu nome. Valores e fechamento ficam com a recepção.</p>
       </Cartao>
     </div>

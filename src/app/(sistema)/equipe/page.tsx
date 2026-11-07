@@ -6,6 +6,7 @@ import { exigirDono } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import { linksDasFotos } from "@/lib/fotos";
 import { salvarProfissional } from "./actions";
+import { categoriasBloqueadas } from "../agenda/dados";
 import { CampoFoto, FotoDoCartao } from "./campo-foto";
 
 export const metadata: Metadata = { title: "Equipe" };
@@ -23,6 +24,10 @@ export default async function PaginaEquipe({ searchParams }: PageProps<"/equipe"
   const { data } = await supabase.from("profissionais").select("*").order("ativo", { ascending: false }).order("ordem").order("nome");
   const equipe = (data ?? []) as Profissional[];
   const fotos = await linksDasFotos(supabase, equipe.map((p) => p.foto_path));
+  const [{ data: categorias }, bloqueios] = await Promise.all([
+    supabase.from("categorias").select("id, nome, tipo").eq("ativo", true).order("nome"),
+    categoriasBloqueadas(supabase),
+  ]);
   const emEdicao = editar === "novo" ? null : equipe.find((p) => p.id === editar);
   const mostrarForm = editar === "novo" || Boolean(emEdicao);
 
@@ -77,6 +82,23 @@ export default async function PaginaEquipe({ searchParams }: PageProps<"/equipe"
                 Ativa (desmarque quando sair do salão)
               </label>
             </div>
+            <fieldset className="rounded-lg border border-borda p-4 sm:col-span-2">
+              <legend className="px-1 text-sm font-semibold">Não pode lançar</legend>
+              <p className="mb-3 text-xs text-suave">Marque o que não é da área desta profissional. Essas categorias somem da agenda e da comanda dela, e o sistema recusa o lançamento.</p>
+              {(["servico", "produto"] as const).map((tipo) => (
+                <div key={tipo} className="mb-2">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-rose">{tipo === "servico" ? "Serviços" : "Produtos"}</p>
+                  <div className="grid gap-x-4 sm:grid-cols-2">
+                    {(categorias ?? []).filter((c) => c.tipo === tipo).map((c) => (
+                      <label key={c.id} className="flex min-h-11 items-center gap-3 text-sm">
+                        <input type="checkbox" name="categoria_bloqueada" value={c.id} defaultChecked={Boolean(emEdicao && bloqueios[emEdicao.id]?.includes(c.id))} className="size-5 accent-rose" />
+                        {c.nome}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </fieldset>
             <div className="flex gap-3 sm:col-span-2">
               <BotaoEnviar>Salvar</BotaoEnviar>
               <BotaoLink href="/equipe" variante="secundario">Cancelar</BotaoLink>
@@ -104,6 +126,7 @@ export default async function PaginaEquipe({ searchParams }: PageProps<"/equipe"
                 <Etiqueta tom={p.papel === "dono" ? "rose" : "neutro"}>{p.papel === "dono" ? "Dono" : "Profissional"}</Etiqueta>
                 {p.usuario_id ? <Etiqueta tom="sucesso">Login ativo</Etiqueta> : <Etiqueta tom="aviso">Sem login</Etiqueta>}
                 {!p.recebe_comissao && <Etiqueta>Sem comissão</Etiqueta>}
+                {(bloqueios[p.id]?.length ?? 0) > 0 && <Etiqueta>{bloqueios[p.id].length} categoria(s) bloqueada(s)</Etiqueta>}
                 {!p.ativo && <Etiqueta tom="erro">Inativa</Etiqueta>}
               </div>
             </Cartao>

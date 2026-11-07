@@ -15,6 +15,10 @@ begin
   update public.configuracoes set taxa_credito = 3.00, taxa_credito_2x = null, taxa_credito_3x = 5.00, taxa_credito_4x = null;
   v_taxa1 := 3.00;
 
+  -- Estes testes usam a Di em qualquer serviço: o bloqueio fica de lado (tudo é desfeito no final)
+  delete from public.profissional_categorias_bloqueadas where profissional_id = v_prof;
+  -- O desconto do Pix tem teste próprio (desconto_pix.sql)
+  update public.configuracoes set desconto_pix = 0;
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_dono_user, 'role', 'authenticated')::text, true);
   v_c1 := public.abrir_comanda(v_cliente, null);

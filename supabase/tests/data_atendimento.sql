@@ -16,6 +16,10 @@ begin
   insert into public.clientes (nome) values ('ZZ Teste Data') returning id into v_cliente;
   v_pag := jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor_centavos', v_preco + 1000));
 
+  -- Estes testes usam a Di em qualquer serviço: o bloqueio fica de lado (tudo é desfeito no final)
+  delete from public.profissional_categorias_bloqueadas where profissional_id = v_prof;
+  -- O desconto do Pix tem teste próprio (desconto_pix.sql)
+  update public.configuracoes set desconto_pix = 0;
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_dono_user, 'role', 'authenticated')::text, true);
 

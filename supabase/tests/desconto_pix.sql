@@ -17,6 +17,8 @@ begin
   delete from public.regras_comissao where profissional_id = v_prof;
   insert into public.regras_comissao (profissional_id, tipo, percentual) values (v_prof, 'padrao', 40);
 
+  -- Estes testes usam a Di em qualquer serviço: o bloqueio fica de lado (tudo é desfeito no final)
+  delete from public.profissional_categorias_bloqueadas where profissional_id = v_prof;
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_dono_user, 'role', 'authenticated')::text, true);
 

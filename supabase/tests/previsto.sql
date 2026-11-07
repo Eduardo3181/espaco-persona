@@ -14,6 +14,9 @@ begin
   insert into public.servicos (nome, categoria_id, duracao_min, preco_centavos) values ('ZZ A', v_cat, 30, 10000) returning id into v_serv1;
   insert into public.servicos (nome, categoria_id, duracao_min, preco_centavos) values ('ZZ B', v_cat, 30, 5000) returning id into v_serv2;
 
+  -- Estes testes usam a Di em qualquer serviço: o bloqueio fica de lado (tudo é desfeito no final)
+  delete from public.profissional_categorias_bloqueadas where profissional_id = v_prof;
+
   -- Dois serviços num horário agendado: conta 150,00
   insert into public.agendamentos (profissional_id, cliente_id, inicio, fim, status)
     values (v_prof, v_cliente, '2031-03-10 12:00-03', '2031-03-10 13:00-03', 'aguardando') returning id into v_ag;

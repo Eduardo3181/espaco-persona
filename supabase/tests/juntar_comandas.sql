@@ -28,6 +28,8 @@ begin
   insert into public.comanda_caixinhas (comanda_id, profissional_id, valor_centavos)
     values (c1, v_di, 500), (c2, v_di, 700), (c2, v_val, 1000);
 
+  -- O desconto do Pix tem teste próprio (desconto_pix.sql)
+  update public.configuracoes set desconto_pix = 0;
   perform set_config('role', 'authenticated', true);
 
   -- Profissional não junta

@@ -7,7 +7,7 @@ import { classeBotao, classeInput } from "@/components/ui";
 import { formatarDuracao, formatarReais, semAcento } from "@/lib/formato";
 import { lancarItem } from "../actions";
 
-export type OpcaoItem = { id: string; nome: string; grupo: string; preco_centavos: number; duracao_min?: number };
+export type OpcaoItem = { id: string; nome: string; grupo: string; preco_centavos: number; duracao_min?: number; categoria_id: string };
 type Tipo = "servico" | "produto";
 
 const NOMES: Record<Tipo, string> = { servico: "serviço", produto: "produto" };
@@ -16,13 +16,15 @@ const NOMES: Record<Tipo, string> = { servico: "serviço", produto: "produto" };
  * Botões "+ Serviço" e "+ Produto": abrem a janela de seleção com busca por parte do nome
  * (sem acento também funciona). Ao escolher, o item entra na comanda com o preço atual da tabela.
  */
-export function AdicionarItem({ comandaId, servicos, produtos, profissionais, podeEscolherProf, profPadrao }: {
+export function AdicionarItem({ comandaId, servicos, produtos, profissionais, podeEscolherProf, profPadrao, bloqueios }: {
   comandaId: string;
   servicos: OpcaoItem[];
   produtos: OpcaoItem[];
   profissionais: { id: string; nome: string }[];
   podeEscolherProf: boolean;
   profPadrao: string;
+  /** Categorias que cada profissional não pode lançar */
+  bloqueios: Record<string, string[]>;
 }) {
   const { estado, aoEnviar, pendente } = useEnvioSemLimpar(lancarItem);
   const [tipo, setTipo] = useState<Tipo>("servico");
@@ -31,7 +33,12 @@ export function AdicionarItem({ comandaId, servicos, produtos, profissionais, po
   const form = useRef<HTMLFormElement>(null);
   const busca = useRef<HTMLInputElement>(null);
   const quantidade = useRef<HTMLInputElement>(null);
-  const opcoes = tipo === "servico" ? servicos : produtos;
+  const [profissional, setProfissional] = useState(profPadrao);
+  const todasOpcoes = tipo === "servico" ? servicos : produtos;
+  const opcoes = useMemo(() => {
+    const bloqueadas = bloqueios[profissional] ?? [];
+    return todasOpcoes.filter((o) => !bloqueadas.includes(o.categoria_id));
+  }, [todasOpcoes, bloqueios, profissional]);
 
   const filtradas = useMemo(() => {
     const palavras = semAcento(termo).split(/\s+/).filter(Boolean);
@@ -90,7 +97,7 @@ export function AdicionarItem({ comandaId, servicos, produtos, profissionais, po
             {podeEscolherProf ? (
               <label className="flex flex-col gap-1 text-sm">
                 <span className="font-medium">Profissional</span>
-                <select name="profissional_id" required defaultValue={profPadrao} className={classeInput}>
+                <select name="profissional_id" required value={profissional} onChange={(e) => setProfissional(e.target.value)} className={classeInput}>
                   <option value="" disabled>Escolha…</option>
                   {profissionais.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
                 </select>
@@ -103,8 +110,11 @@ export function AdicionarItem({ comandaId, servicos, produtos, profissionais, po
             </label>
           </div>
 
+          {opcoes.length < todasOpcoes.length && (
+            <p className="border-b border-borda bg-fundo px-4 py-1 text-xs text-suave">Só aparecem os itens que esta profissional pode lançar.</p>
+          )}
           <ul className="min-h-40 flex-1 overflow-y-auto" aria-label={`Lista de ${NOMES[tipo]}s`}>
-            {opcoes.length === 0 && <li className="p-4 text-sm text-suave">Nenhum {NOMES[tipo]} cadastrado ainda (Serviços e produtos).</li>}
+            {opcoes.length === 0 && <li className="p-4 text-sm text-suave">{todasOpcoes.length === 0 ? `Nenhum ${NOMES[tipo]} cadastrado ainda (Serviços e produtos).` : `Esta profissional não pode lançar ${NOMES[tipo]}s.`}</li>}
             {opcoes.length > 0 && filtradas.length === 0 && <li className="p-4 text-sm text-suave">Nada encontrado para “{termo}”.</li>}
             {filtradas.map((o, i) => (
               <li key={o.id}>

@@ -39,6 +39,8 @@ begin
   -- Usa o login real da profissional sob teste (só simulação; tudo é desfeito no final)
   select usuario_id into v_usuario from public.profissionais where id = v_prof;
 
+  -- Estes testes usam a Di em qualquer serviço: o bloqueio fica de lado (tudo é desfeito no final)
+  delete from public.profissional_categorias_bloqueadas where profissional_id = v_prof;
   perform set_config('role', 'authenticated', true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_usuario, 'role', 'authenticated')::text, true);
 

@@ -9,7 +9,7 @@ import { formatarDuracao, formatarReais, formatarTelefone } from "@/lib/formato"
 import { dataValida, datasDaRecorrencia, diaMes, somarDias, somarMeses, type Recorrencia } from "@/lib/agenda";
 import { buscarClientes, salvarAgendamento } from "./actions";
 
-type Servico = { id: string; nome: string; duracao_min: number; preco_centavos: number; categoria: string };
+type Servico = { id: string; nome: string; duracao_min: number; preco_centavos: number; categoria: string; categoria_id: string };
 type ClienteResumo = { id: string; nome: string; telefone: string | null };
 
 export type InicialAgendamento = {
@@ -35,10 +35,12 @@ const OPCOES_RECORRENCIA: { valor: Recorrencia | ""; rotulo: string }[] = [
 /** Parte do atendimento feita por uma profissional (com hora e serviços próprios). */
 type Bloco = { chave: number; profissional_id: string; hora: string; servicos: string[]; duracaoManual: number | null };
 
-export function FormAgendamento({ profissionais, podeEscolherProf, servicos, inicial, voltarHref }: {
+export function FormAgendamento({ profissionais, podeEscolherProf, servicos, bloqueios, inicial, voltarHref }: {
   profissionais: { id: string; nome: string }[];
   podeEscolherProf: boolean;
   servicos: Servico[];
+  /** Categorias que cada profissional não pode lançar */
+  bloqueios: Record<string, string[]>;
   inicial: InicialAgendamento;
   voltarHref: string;
 }) {
@@ -64,6 +66,8 @@ export function FormAgendamento({ profissionais, podeEscolherProf, servicos, ini
     () => servicos.map((s) => ({ id: s.id, nome: s.nome, grupo: s.categoria, detalhe: `${formatarDuracao(s.duracao_min)} · ${formatarReais(s.preco_centavos)}` })),
     [servicos],
   );
+  const bloqueado = (profissionalId: string, servicoId: string) =>
+    (bloqueios[profissionalId] ?? []).includes(porId.get(servicoId)?.categoria_id ?? "");
   const soma = (b: Bloco) => b.servicos.reduce((t, id) => t + (porId.get(id)?.duracao_min ?? 0), 0);
   const duracaoDe = (b: Bloco) => b.duracaoManual ?? soma(b);
 
@@ -210,9 +214,14 @@ export function FormAgendamento({ profissionais, podeEscolherProf, servicos, ini
                 <BuscaItem
                   rotulo={`Adicionar serviço${blocos.length > 1 ? ` da profissional ${i + 1}` : ""}`}
                   placeholder={b.servicos.length ? "Adicionar outro serviço — digite para buscar…" : "Digite o serviço (ex.: escova, corte, mão)…"}
-                  opcoes={opcoesServico}
+                  opcoes={opcoesServico.filter((o) => !bloqueado(b.profissional_id, o.id))}
                   aoEscolher={(id) => alterar(b.chave, { servicos: [...b.servicos, id] })}
                 />
+                {b.servicos.some((id) => bloqueado(b.profissional_id, id)) && (
+                  <p role="alert" className="font-semibold text-erro">
+                    Esta profissional não pode lançar: {b.servicos.filter((id) => bloqueado(b.profissional_id, id)).map((id) => porId.get(id)?.nome).join(", ")}. Remova para salvar.
+                  </p>
+                )}
               </div>
 
               <label className="flex flex-col gap-1 text-sm sm:col-span-2">

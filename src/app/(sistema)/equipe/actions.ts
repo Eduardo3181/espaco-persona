@@ -76,6 +76,16 @@ export async function salvarProfissional(_e: EstadoForm, dados: FormData): Promi
     : await supabase.from("profissionais").insert(registro).select("id").single();
   if (error || !salvo) return { erro: mensagemErro(error?.message ?? "") };
 
+  // Categorias que esta profissional não pode lançar
+  const bloqueadas = dados.getAll("categoria_bloqueada").map(String);
+  const { error: erroApagar } = await supabase.from("profissional_categorias_bloqueadas").delete().eq("profissional_id", salvo.id);
+  if (erroApagar) return { erro: "Os dados foram salvos, mas não foi possível atualizar as categorias bloqueadas." };
+  if (bloqueadas.length) {
+    const { error: erroBloqueio } = await supabase.from("profissional_categorias_bloqueadas")
+      .insert(bloqueadas.map((categoria_id) => ({ profissional_id: salvo.id, categoria_id })));
+    if (erroBloqueio) return { erro: "Os dados foram salvos, mas não foi possível gravar as categorias bloqueadas." };
+  }
+
   // Cadastro novo: a foto escolhida é gravada junto (quem já existe grava na hora, em salvarFoto)
   if (fotoNova) {
     const erroFoto = await gravarFoto(supabase, salvo.id, fotoNova);
