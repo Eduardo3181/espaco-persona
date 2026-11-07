@@ -21,14 +21,35 @@ begin
   select id into v_cliente from public.clientes limit 1;
   select id into v_servico from public.servicos limit 1;
 
-  -- Trava (como administrador): dois horários sobrepostos da mesma profissional
+  -- Duas clientes no mesmo horário da mesma profissional: pode
   insert into public.agendamentos (profissional_id, cliente_id, inicio, fim)
   values (v_outra, v_cliente, v_dia, v_dia + interval '1 hour') returning id into v_ag_di;
+  insert into public.agendamentos (profissional_id, cliente_id, inicio, fim)
+  values (v_outra, v_cliente, v_dia + interval '30 min', v_dia + interval '90 min');
+  r := r || ' clientes no mesmo horário OK;';
+  -- Bloquear em cima de um agendamento: não pode
+  begin
+    insert into public.agendamentos (tipo, profissional_id, inicio, fim, motivo)
+    values ('bloqueio', v_outra, v_dia + interval '30 min', v_dia + interval '45 min', 'teste');
+    r := r || ' bloqueio sobre cliente: FALHA (permitiu);'; falhou := true;
+  exception when exclusion_violation then r := r || ' bloqueio sobre cliente recusado OK;';
+  end;
+  -- Agendar em cima de um bloqueio: não pode (e cancelada não atrapalha)
+  insert into public.agendamentos (tipo, profissional_id, inicio, fim, motivo)
+  values ('bloqueio', v_outra, v_dia + interval '4 hours', v_dia + interval '5 hours', 'teste');
   begin
     insert into public.agendamentos (profissional_id, cliente_id, inicio, fim)
-    values (v_outra, v_cliente, v_dia + interval '30 min', v_dia + interval '90 min');
-    r := r || ' sobreposição: FALHA (permitiu);'; falhou := true;
-  exception when exclusion_violation then r := r || ' sobreposição bloqueada OK;';
+    values (v_outra, v_cliente, v_dia + interval '4 hours', v_dia + interval '5 hours');
+    r := r || ' cliente sobre bloqueio: FALHA (permitiu);'; falhou := true;
+  exception when exclusion_violation then r := r || ' cliente sobre bloqueio recusada OK;';
+  end;
+  insert into public.agendamentos (profissional_id, cliente_id, inicio, fim, status)
+  values (v_outra, v_cliente, v_dia + interval '4 hours', v_dia + interval '5 hours', 'cancelado');
+  begin
+    update public.agendamentos set status = 'aguardando'
+     where profissional_id = v_outra and inicio = v_dia + interval '4 hours' and status = 'cancelado';
+    r := r || ' reativar sobre bloqueio: FALHA (permitiu);'; falhou := true;
+  exception when exclusion_violation then r := r || ' reativar sobre bloqueio recusado OK;';
   end;
   -- Encostado (11:00 em diante) pode
   insert into public.agendamentos (profissional_id, cliente_id, inicio, fim, status)

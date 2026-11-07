@@ -96,3 +96,30 @@ export function horariosDaGrade(): string[] {
   }
   return lista;
 }
+
+/** Agendamentos que coincidem ficam lado a lado: a coluna de cada um e quantas colunas o grupo precisa. */
+export function colunasDaAgenda<T extends { id: string; inicio: string; fim: string }>(itens: T[]) {
+  const ms = (iso: string) => new Date(iso).getTime();
+  const ordenados = [...itens].sort((a, b) => ms(a.inicio) - ms(b.inicio) || ms(a.fim) - ms(b.fim));
+  const posicao = new Map<string, { coluna: number; colunas: number }>();
+  let grupo: string[] = [];
+  let finsDasColunas: number[] = [];
+  let fimDoGrupo = 0;
+  const fecharGrupo = () => {
+    for (const id of grupo) posicao.get(id)!.colunas = finsDasColunas.length;
+    grupo = [];
+    finsDasColunas = [];
+    fimDoGrupo = 0;
+  };
+  for (const item of ordenados) {
+    if (grupo.length && ms(item.inicio) >= fimDoGrupo) fecharGrupo();
+    let coluna = finsDasColunas.findIndex((fim) => fim <= ms(item.inicio));
+    if (coluna < 0) coluna = finsDasColunas.length;
+    finsDasColunas[coluna] = ms(item.fim);
+    fimDoGrupo = Math.max(fimDoGrupo, ms(item.fim));
+    posicao.set(item.id, { coluna, colunas: 1 });
+    grupo.push(item.id);
+  }
+  fecharGrupo();
+  return posicao;
+}

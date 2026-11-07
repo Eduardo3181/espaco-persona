@@ -20,6 +20,7 @@ async function descreverConflito(supabase: Supabase, profissionalId: string, ini
     .from("agendamentos")
     .select("id, tipo, inicio, fim, motivo, clientes(nome)")
     .eq("profissional_id", profissionalId)
+    .eq("tipo", "bloqueio")
     .not("status", "in", "(cancelado,faltou)")
     .lt("inicio", fim)
     .gt("fim", inicio)
@@ -27,17 +28,18 @@ async function descreverConflito(supabase: Supabase, profissionalId: string, ini
   if (ignorarId) q = q.neq("id", ignorarId);
   const { data } = await q;
   const c = data?.[0] as unknown as { tipo: string; inicio: string; fim: string; motivo: string | null; clientes: { nome: string } | null } | undefined;
-  if (!c) return "Horário ocupado para esta profissional.";
+  if (!c) return "Horário bloqueado para esta profissional.";
   const quem = c.tipo === "bloqueio" ? `bloqueio (${c.motivo || "sem motivo"})` : c.clientes?.nome ?? "outro agendamento";
-  return `Horário ocupado: ${quem} das ${partesSP(c.inicio).hora} às ${partesSP(c.fim).hora}.`;
+  return `Horário indisponível: ${quem} das ${partesSP(c.inicio).hora} às ${partesSP(c.fim).hora}.`;
 }
 
-/** Períodos já ocupados na agenda da profissional, para conferir várias datas de uma vez. */
+/** Horários bloqueados da profissional, para conferir várias datas de uma vez (clientes podem coincidir). */
 async function ocupadosNoPeriodo(supabase: Supabase, profissionalId: string, inicio: string, fim: string, ignorarIds: string[] = []) {
   const { data } = await supabase
     .from("agendamentos")
     .select("id, inicio, fim")
     .eq("profissional_id", profissionalId)
+    .eq("tipo", "bloqueio")
     .not("status", "in", "(cancelado,faltou)")
     .lt("inicio", fim)
     .gt("fim", inicio);
@@ -47,7 +49,7 @@ async function ocupadosNoPeriodo(supabase: Supabase, profissionalId: string, ini
 const sobrepoe = (a: { inicio: string; fim: string }, b: { inicio: string; fim: string }) =>
   new Date(a.inicio) < new Date(b.fim) && new Date(b.inicio) < new Date(a.fim);
 
-const ERRO_HORARIO_OCUPADO = "Um dos horários acabou de ser ocupado. Confira a agenda e tente de novo.";
+const ERRO_HORARIO_OCUPADO = "Um dos horários acabou de ser bloqueado. Confira a agenda e tente de novo.";
 
 /** Volta para a agenda mostrando o resultado de uma ação na recorrência. */
 function agendaComAviso(data: string, profissionalId: string, acao: "criados" | "alterados", qtd: number, puladas: string[]) {
@@ -145,6 +147,7 @@ export async function salvarAgendamento(_e: EstadoForm, dados: FormData): Promis
       .from("agendamentos")
       .select("id", { count: "exact", head: true })
       .eq("profissional_id", p.profissional_id)
+      .eq("tipo", "bloqueio")
       .not("status", "in", "(cancelado,faltou)")
       .lt("inicio", p.fim)
       .gt("fim", p.inicio)
@@ -152,7 +155,7 @@ export async function salvarAgendamento(_e: EstadoForm, dados: FormData): Promis
     if (count) return { erro: await descreverConflito(supabase, p.profissional_id, p.inicio, p.fim, id ?? undefined) };
   }
 
-  // Novo agendamento recorrente: datas com horário ocupado ficam de fora e são avisadas
+  // Novo agendamento recorrente: datas com horário bloqueado ficam de fora e são avisadas
   type Bloco = { profissional_id: string; inicio: string; duracao_min: number; servicos: string[] };
   const datasLivres: { data: string; blocos: Bloco[] }[] = [];
   const puladas: string[] = [];
@@ -173,7 +176,7 @@ export async function salvarAgendamento(_e: EstadoForm, dados: FormData): Promis
       if (ocupada) puladas.push(d);
       else datasLivres.push({ data: d, blocos: blocosDia });
     }
-    if (!datasLivres.length) return { erro: "O horário está ocupado em todas as datas da recorrência." };
+    if (!datasLivres.length) return { erro: "O horário está bloqueado em todas as datas da recorrência." };
   }
 
   if (!clienteId) {
@@ -212,20 +215,14 @@ export async function salvarAgendamento(_e: EstadoForm, dados: FormData): Promis
       return { id: h.id, atual: h, inicio, fim: new Date(new Date(inicio).getTime() + novo.duracao * 60000).toISOString() };
     });
 
-    // Quem não pode mudar fica onde está; isso pode ocupar o lugar de outro, então confere até estabilizar
+    // Data com horário bloqueado fica onde está; as outras clientes não atrapalham
     const instantes = [...planejados, ...horarios].flatMap((p) => [new Date(p.inicio).getTime(), new Date(p.fim).getTime()]);
     const externos = await ocupadosNoPeriodo(
       supabase, novo.profissional_id, new Date(Math.min(...instantes)).toISOString(), new Date(Math.max(...instantes)).toISOString(), horarios.map((h) => h.id),
     );
     const movendo = new Set(planejados.map((p) => p.id));
-    for (let mudou = true; mudou;) {
-      mudou = false;
-      const parados = planejados.filter((p) => !movendo.has(p.id)).map((p) => p.atual);
-      // Horários parados só atrapalham se continuam na agenda da mesma profissional
-      const barreiras = novo.profissional_id === atual.profissional_id ? [...externos, ...parados] : externos;
-      for (const p of planejados) {
-        if (movendo.has(p.id) && barreiras.some((b) => sobrepoe(b, p))) { movendo.delete(p.id); mudou = true; }
-      }
+    for (const p of planejados) {
+      if (externos.some((b) => sobrepoe(b, p))) movendo.delete(p.id);
     }
     if (!movendo.has(id)) return { erro: await descreverConflito(supabase, novo.profissional_id, planejados.find((p) => p.id === id)!.inicio, planejados.find((p) => p.id === id)!.fim, id) };
 
@@ -287,7 +284,7 @@ export async function mudarStatus(_e: EstadoForm, dados: FormData): Promise<Esta
   const { error } = await supabase.from("agendamentos").update({ status }).in("id", ids);
   if (error) {
     if (error.code === "23P01") {
-      return { erro: `Não dá para reativar: ${(await descreverConflito(supabase, atual.profissional_id, atual.inicio, atual.fim, id)).replace("Horário ocupado: ", "o horário já está ocupado por ")}` };
+      return { erro: `Não dá para reativar: ${(await descreverConflito(supabase, atual.profissional_id, atual.inicio, atual.fim, id)).replace("Horário indisponível: ", "o horário já está ocupado por ")}` };
     }
     return { erro: "Não foi possível mudar o status." };
   }

@@ -271,7 +271,7 @@ export function FormAgendamento({ profissionais, podeEscolherProf, servicos, blo
               {datasPrevistas.length > 1 && (
                 <span className="text-xs text-suave">
                   Serão até {datasPrevistas.length} agendamentos, de {diaMes(datasPrevistas[0])} a {diaMes(datasPrevistas[datasPrevistas.length - 1])}.
-                  Datas com o horário ocupado ficam de fora e você recebe um aviso.
+                  Datas com o horário bloqueado ficam de fora e você recebe um aviso.
                 </span>
               )}
             </div>

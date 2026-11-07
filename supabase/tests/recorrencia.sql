@@ -33,16 +33,18 @@ begin
   select id into v_a2 from public.agendamentos where cliente_id = v_cliente and inicio = '2030-03-11T10:00:00-03:00';
   select id into v_a3 from public.agendamentos where cliente_id = v_cliente and inicio = '2030-03-18T10:00:00-03:00';
 
-  -- Se uma data está ocupada, nada é gravado
+  -- Se uma data está bloqueada, nada é gravado
+  insert into public.agendamentos (tipo, profissional_id, inicio, fim, motivo)
+  values ('bloqueio', v_valdete, '2030-04-01T10:00:00-03:00', '2030-04-01T11:00:00-03:00', 'teste');
   begin
     perform public.criar_atendimentos_recorrentes(v_cliente, null, jsonb_build_array(
       jsonb_build_array(jsonb_build_object('profissional_id', v_valdete, 'inicio', '2030-03-25T10:00:00-03:00', 'duracao_min', 60, 'servicos', jsonb_build_array(v_escova))),
-      jsonb_build_array(jsonb_build_object('profissional_id', v_valdete, 'inicio', '2030-03-04T10:00:00-03:00', 'duracao_min', 60, 'servicos', jsonb_build_array(v_escova)))
+      jsonb_build_array(jsonb_build_object('profissional_id', v_valdete, 'inicio', '2030-04-01T10:00:00-03:00', 'duracao_min', 60, 'servicos', jsonb_build_array(v_escova)))
     ));
-    r := r || ' data ocupada: FALHA (permitiu);'; falhou := true;
+    r := r || ' data bloqueada: FALHA (permitiu);'; falhou := true;
   exception when exclusion_violation then
     select count(*) into n from public.agendamentos where cliente_id = v_cliente;
-    r := r || format(' data ocupada desfaz tudo %s;', case when n = 3 then 'OK' else 'FALHA' end);
+    r := r || format(' data bloqueada desfaz tudo %s;', case when n = 3 then 'OK' else 'FALHA' end);
     if n <> 3 then falhou := true; end if;
   end;
 

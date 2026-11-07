@@ -6,7 +6,7 @@ import { exigirEquipe } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import { hojeISO } from "@/lib/formato";
 import {
-  HORA_ABRE, HORA_FECHA, SLOT_MIN, STATUS, dataPorExtenso, dataValida, diaMes, horariosDaGrade, paraTimestamp, partesSP, somarDias,
+  HORA_ABRE, HORA_FECHA, SLOT_MIN, STATUS, colunasDaAgenda, dataPorExtenso, dataValida, diaMes, horariosDaGrade, paraTimestamp, partesSP, somarDias,
   type StatusAgendamento,
 } from "@/lib/agenda";
 import { FotoProfissional } from "@/components/foto-profissional";
@@ -57,6 +57,7 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
   const agendamentos = (ags ?? []) as unknown as Agendamento[];
   const ativos = agendamentos.filter((a) => a.status !== "cancelado" && a.status !== "faltou");
   const desmarcados = agendamentos.filter((a) => a.status === "cancelado" || a.status === "faltou");
+  const posicoes = new Map(profissionais.flatMap((p) => [...colunasDaAgenda(ativos.filter((a) => a.profissional_id === p.id))]));
 
   const profSel = profissionais.find((p) => p.id === sp.prof)?.id ?? profissionais[0]?.id;
   const href = (p: { data?: string; mes?: string; prof?: string }) => {
@@ -108,7 +109,7 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
             </p>
             {avisoSerie.puladas.length > 0 && (
               <p className="mt-1 text-erro">
-                {avisoSerie.acao === "criados" ? "Não agendado" : "Não alterado"}, horário ocupado: {avisoSerie.puladas.map(diaMes).join(", ")}.
+                {avisoSerie.acao === "criados" ? "Não agendado" : "Não alterado"}, horário bloqueado: {avisoSerie.puladas.map(diaMes).join(", ")}.
               </p>
             )}
           </div>
@@ -184,20 +185,28 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
                     const altura = Math.max((fimMin - topoMin) * PX_POR_MIN, 22);
                     const bloqueio = a.tipo === "bloqueio";
                     const st = STATUS[a.status];
+                    const { coluna, colunas } = posicoes.get(a.id) ?? { coluna: 0, colunas: 1 };
                     return (
-                      <Link key={a.id} href={`/agenda/${a.id}`}
-                        className={`absolute inset-x-1 overflow-hidden rounded-md border-l-4 px-2 py-1 text-xs shadow-sm transition hover:brightness-95 ${
+                      <Link key={a.id} href={`/agenda/${a.id}`} title={bloqueio ? a.motivo ?? "Bloqueado" : `${ini.hora}–${fim.hora} ${a.clientes?.nome ?? ""} · ${nomesServicos(a)}`}
+                        className={`absolute overflow-hidden rounded-md border-l-4 px-2 py-1 text-xs shadow-sm transition hover:brightness-95 ${
                           bloqueio ? "border-st-bloqueado-borda bg-st-bloqueado text-texto" : `${st.fundo} ${st.borda} ${st.texto}`
                         }`}
-                        style={{ top: topoMin * PX_POR_MIN + 1, height: altura - 2 }}>
-                        <span className="font-semibold">{ini.hora}–{fim.hora}</span>{" "}
+                        style={{
+                          top: topoMin * PX_POR_MIN + 1, height: altura - 2,
+                          // 20px livres à direita: dá para tocar no horário e agendar outra cliente
+                          left: `calc((100% - 20px) * ${coluna} / ${colunas} + 2px)`,
+                          width: `calc((100% - 20px) / ${colunas} - 3px)`,
+                        }}>
+                        {/* Lado a lado o cartão é estreito: o nome vem antes, para continuar visível */}
+                        {colunas > 1 && !bloqueio && <span className="block truncate font-semibold">{a.clientes?.nome}</span>}
+                        <span className="font-semibold">{ini.hora}{colunas > 1 ? "" : `–${fim.hora}`}</span>{" "}
                         {bloqueio ? (
                           <span className="font-semibold"><Lock size={11} className="inline" aria-hidden /> {a.motivo || "Bloqueado"}</span>
                         ) : (
                           <>
                             {a.grupo_atendimento && <Link2 size={11} className="mr-0.5 inline" aria-label="Atendimento com outra profissional" />}
                             {a.grupo_repeticao && <Repeat size={11} className="mr-0.5 inline" aria-label="Agendamento recorrente" />}
-                            <span className="font-semibold">{a.clientes?.nome}</span>
+                            {colunas === 1 && <span className="font-semibold">{a.clientes?.nome}</span>}
                             <span className="block truncate opacity-90">{nomesServicos(a)}</span>
                           </>
                         )}
