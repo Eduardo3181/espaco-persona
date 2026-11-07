@@ -26,8 +26,8 @@
   --color-concluido: #A39A95;
 
   /* Status da agenda: cores fortes, bem diferentes entre si */
-  --color-st-aguardando: #FFD600;
-  --color-st-aguardando-borda: #B89B00;
+  --color-st-aguardando: #FFE86B;
+  --color-st-aguardando-borda: #D4B100;
   --color-st-confirmado: #A020A8;
   --color-st-confirmado-borda: #7A1880;
   --color-st-atendimento: #0B72D9;
