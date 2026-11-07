@@ -93,8 +93,7 @@ export default async function PaginaConfiguracoes({ searchParams }: PageProps<"/
               <Campo rotulo="2º dia"><input name="dia2" type="number" min={2} max={28} required defaultValue={dias[1]} className={`${campoCurto} w-24`} /></Campo>
             </div>
             <p className="mt-1 text-xs text-suave">
-              Cada período vai de um dia de pagamento até a véspera do seguinte. Hoje: período {periodoAtual.rotulo}, pago em {formatarDiaISO(periodoAtual.pagamento)}.
-              Mude só entre um pagamento e outro, para não deixar dias sem período.
+              Os períodos são de 1 a 15 e de 16 ao fim do mês, e o pagamento é sugerido no próximo destes dias depois que o período termina. Hoje: período {periodoAtual.rotulo}, pago em {formatarDiaISO(periodoAtual.pagamento)}.
             </p>
           </fieldset>
 

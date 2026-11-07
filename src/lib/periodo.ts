@@ -1,23 +1,23 @@
-// Períodos de pagamento de comissões, a partir de DOIS dias de pagamento
-// no mês (configuráveis; padrão 1 e 16). Cada período vai do dia de
-// pagamento até a véspera do próximo, e é pago no dia em que termina + 1.
-//   Padrão [1, 16]:  1 a 15 → paga dia 16;  16 ao fim do mês → paga dia 1
+// Períodos de comissões: fixos, de 1 a 15 e de 16 ao fim do mês, ou uma faixa
+// de datas personalizada. O pagamento sugerido é o próximo dos DOIS dias de
+// pagamento (configuráveis) depois que o período termina.
+//   Dias [5, 20]:  1 a 15 → paga dia 20;  16 ao fim do mês → paga dia 5
 
 import { MESES } from "@/lib/formato";
-import { somarDias } from "@/lib/agenda";
+import { dataValida, somarDias } from "@/lib/agenda";
 
 export type DiasPagamento = [number, number];
 export const DIAS_PADRAO: DiasPagamento = [1, 16];
 
 export type Periodo = {
-  chave: string;      // = início do período "AAAA-MM-DD"
+  chave: string;      // início "AAAA-MM-DD"; personalizado: "AAAA-MM-DD_AAAA-MM-DD"
   inicio: string;
   fim: string;
-  pagamento: string;  // dia do pagamento (dia seguinte ao fim)
+  pagamento: string;  // dia de pagamento sugerido
   rotulo: string;     // "1 a 15 de outubro de 2026"
+  personalizado: boolean;
 };
 
-const doisDig = (n: number) => String(n).padStart(2, "0");
 const iso = (a: number, m: number, d: number) => {
   const dt = new Date(Date.UTC(a, m - 1, d));
   return dt.toISOString().slice(0, 10);
@@ -36,31 +36,45 @@ function rotular(inicio: string, fim: string) {
   const [ai, mi, di] = inicio.split("-").map(Number);
   const [af, mf, df] = fim.split("-").map(Number);
   if (ai === af && mi === mf) return `${di} a ${df} de ${MESES[mf - 1]} de ${af}`;
-  return `${di} de ${MESES[mi - 1]} a ${df} de ${MESES[mf - 1]} de ${af}`;
+  if (ai === af) return `${di} de ${MESES[mi - 1]} a ${df} de ${MESES[mf - 1]} de ${af}`;
+  return `${di} de ${MESES[mi - 1]} de ${ai} a ${df} de ${MESES[mf - 1]} de ${af}`;
 }
 
-function montar(inicio: string, dias: DiasPagamento): Periodo {
-  const [a, m, d] = inicio.split("-").map(Number);
-  // próximo dia de pagamento depois do início
-  const proximo = d === dias[0] ? iso(a, m, dias[1]) : iso(a, m + 1, dias[0]);
-  const fim = somarDias(proximo, -1);
-  return { chave: inicio, inicio, fim, pagamento: proximo, rotulo: rotular(inicio, fim) };
+/** Próximo dia de pagamento depois da data */
+function proximoPagamento(data: string, dias: DiasPagamento) {
+  const [a, m, d] = data.split("-").map(Number);
+  if (d < dias[0]) return iso(a, m, dias[0]);
+  if (d < dias[1]) return iso(a, m, dias[1]);
+  return iso(a, m + 1, dias[0]);
 }
 
-/** Período que contém a data */
+function montar(inicio: string, fim: string, dias: DiasPagamento, personalizado = false): Periodo {
+  return {
+    chave: personalizado ? `${inicio}_${fim}` : inicio, inicio, fim, personalizado,
+    pagamento: proximoPagamento(fim, dias), rotulo: rotular(inicio, fim),
+  };
+}
+
+/** Período fixo que contém a data: 1 a 15 ou 16 ao fim do mês */
 export function periodoDaData(data: string, dias: DiasPagamento = DIAS_PADRAO): Periodo {
   const [a, m, d] = data.split("-").map(Number);
-  let inicio: string;
-  if (d >= dias[1]) inicio = `${a}-${doisDig(m)}-${doisDig(dias[1])}`;
-  else if (d >= dias[0]) inicio = `${a}-${doisDig(m)}-${doisDig(dias[0])}`;
-  else inicio = iso(a, m - 1, dias[1]); // antes do 1º dia: período começou no mês anterior
-  return montar(inicio, dias);
+  return d <= 15
+    ? montar(iso(a, m, 1), iso(a, m, 15), dias)
+    : montar(iso(a, m, 16), iso(a, m + 1, 0), dias);
 }
 
-/** Período a partir da chave (data de início); inválida → null */
+/** Faixa escolhida à mão; inválida → null */
+export function periodoPersonalizado(de: unknown, ate: unknown, dias: DiasPagamento = DIAS_PADRAO): Periodo | null {
+  if (!dataValida(de) || !dataValida(ate) || ate < de) return null;
+  return montar(de, ate, dias, true);
+}
+
+/** Período a partir da chave; inválida → null */
 export function periodoDaChave(chave: unknown, dias: DiasPagamento = DIAS_PADRAO): Periodo | null {
-  if (typeof chave !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(chave)) return null;
-  return periodoDaData(chave, dias);
+  if (typeof chave !== "string") return null;
+  const [de, ate] = chave.split("_");
+  if (ate) return periodoPersonalizado(de, ate, dias);
+  return dataValida(de) ? periodoDaData(de, dias) : null;
 }
 
 export function periodoAnterior(p: Periodo, dias: DiasPagamento = DIAS_PADRAO): Periodo {

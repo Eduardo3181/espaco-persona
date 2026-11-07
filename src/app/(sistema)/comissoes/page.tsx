@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import { BotaoEnviar, FormAcao } from "@/components/formulario";
-import { Abas, Campo, Cartao, Vazio, classeInput } from "@/components/ui";
+import { Abas, Campo, Cartao, Vazio, classeBotao, classeInput } from "@/components/ui";
 import { exigirEquipe } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import { formatarDiaISO, formatarReais, hojeISO } from "@/lib/formato";
 import {
-  FORMAS_PAGAMENTO_COMISSAO, periodoAnterior, periodoDaChave, periodoDaData, periodoSeguinte, type Periodo,
+  FORMAS_PAGAMENTO_COMISSAO, periodoAnterior, periodoDaChave, periodoDaData, periodoPersonalizado, periodoSeguinte, type Periodo,
 } from "@/lib/periodo";
 import { obterConfigEquipe } from "@/lib/config";
 import type { DiasPagamento } from "@/lib/periodo";
@@ -29,10 +29,13 @@ export default async function PaginaComissoes({ searchParams }: PageProps<"/comi
   const { profissional: eu } = await exigirEquipe();
   const sp = await searchParams;
   const { dias } = await obterConfigEquipe();
-  const periodo = periodoDaChave(sp.p, dias) ?? periodoDaData(hojeISO(), dias);
+  const periodo = periodoPersonalizado(sp.de, sp.ate, dias) ?? periodoDaChave(sp.p, dias) ?? periodoDaData(hojeISO(), dias);
+  // Personalizar: mostra os campos de data, mesmo antes de escolher a faixa
+  const faixaInvalida = typeof sp.de === "string" && !periodo.personalizado;
+  const personalizar = sp.modo === "personalizar" || periodo.personalizado || faixaInvalida;
   const supabase = await criarClienteServidor();
 
-  if (eu.papel !== "dono") return <VisaoProfissional supabase={supabase} euId={eu.id} periodo={periodo} dias={dias} />;
+  if (eu.papel !== "dono") return <VisaoProfissional supabase={supabase} euId={eu.id} periodo={periodo} dias={dias} personalizar={personalizar} faixaInvalida={faixaInvalida} />;
 
   const aba = sp.aba === "pagas" ? "pagas" : "apagar";
   return (
@@ -42,7 +45,7 @@ export default async function PaginaComissoes({ searchParams }: PageProps<"/comi
         { id: "pagas", rotulo: "Pagas", href: "/comissoes?aba=pagas" },
       ]} />
       {aba === "apagar"
-        ? <APagar supabase={supabase} periodo={periodo} dias={dias} acabouDePagar={sp.pago === "1"} />
+        ? <APagar supabase={supabase} periodo={periodo} dias={dias} personalizar={personalizar} faixaInvalida={faixaInvalida} acabouDePagar={sp.pago === "1"} />
         : <Pagas supabase={supabase} ver={typeof sp.ver === "string" ? sp.ver : undefined} />}
     </div>
   );
@@ -52,23 +55,42 @@ export default async function PaginaComissoes({ searchParams }: PageProps<"/comi
 // Peças comuns
 // ======================================================================
 
-function SeletorPeriodo({ periodo, dias, extra = "" }: { periodo: Periodo; dias: DiasPagamento; extra?: string }) {
+function SeletorPeriodo({ periodo, dias, personalizar, faixaInvalida }: { periodo: Periodo; dias: DiasPagamento; personalizar: boolean; faixaInvalida: boolean }) {
   const atual = periodoDaData(hojeISO(), dias).chave === periodo.chave;
+  const mes = periodo.inicio.slice(0, 7);
+  const primeira = periodoDaData(`${mes}-01`, dias);
+  const segunda = periodoDaData(`${mes}-16`, dias);
+  const botao = (ativo: boolean) => `flex min-h-11 items-center rounded-md px-3 text-sm font-semibold ${ativo ? "bg-escuro text-sobre-escuro" : "text-suave hover:text-texto"}`;
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Link href={`/comissoes?p=${periodoAnterior(periodo, dias).chave}${extra}`} className="flex size-11 items-center justify-center rounded-lg border border-borda bg-cartao" aria-label="Período anterior">
-        <ChevronLeft size={20} />
-      </Link>
-      <Link href={`/comissoes?p=${periodoSeguinte(periodo, dias).chave}${extra}`} className="flex size-11 items-center justify-center rounded-lg border border-borda bg-cartao" aria-label="Próximo período">
-        <ChevronRight size={20} />
-      </Link>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href={`/comissoes?p=${periodoAnterior(periodo, dias).chave}`} className="flex size-11 items-center justify-center rounded-lg border border-borda bg-cartao" aria-label="Período anterior">
+          <ChevronLeft size={20} />
+        </Link>
+        <Link href={`/comissoes?p=${periodoSeguinte(periodo, dias).chave}`} className="flex size-11 items-center justify-center rounded-lg border border-borda bg-cartao" aria-label="Próximo período">
+          <ChevronRight size={20} />
+        </Link>
+        <nav className="flex flex-wrap gap-1 rounded-lg border border-borda bg-cartao p-1" aria-label="Período">
+          <Link href={`/comissoes?p=${primeira.chave}`} aria-current={!personalizar && periodo.chave === primeira.chave ? "page" : undefined} className={botao(!personalizar && periodo.chave === primeira.chave)}>1 a 15</Link>
+          <Link href={`/comissoes?p=${segunda.chave}`} aria-current={!personalizar && periodo.chave === segunda.chave ? "page" : undefined} className={botao(!personalizar && periodo.chave === segunda.chave)}>16 a {Number(segunda.fim.slice(8, 10))}</Link>
+          <Link href={`/comissoes?modo=personalizar&p=${periodo.chave}`} aria-current={personalizar ? "page" : undefined} className={botao(personalizar)}>Personalizar</Link>
+        </nav>
+        {!atual && (
+          <Link href="/comissoes" className="ml-auto flex min-h-11 items-center rounded-lg border border-borda bg-cartao px-4 text-sm font-semibold">Período atual</Link>
+        )}
+      </div>
+      {personalizar && (
+        <form action="/comissoes" method="get" className="flex flex-wrap items-end gap-2">
+          <Campo rotulo="De"><input type="date" name="de" required defaultValue={periodo.inicio} className={classeInput} /></Campo>
+          <Campo rotulo="Até"><input type="date" name="ate" required defaultValue={periodo.fim} className={classeInput} /></Campo>
+          <button className={classeBotao("primario")}>Ver período</button>
+        </form>
+      )}
+      {faixaInvalida && <p role="alert" className="text-sm font-semibold text-erro">A data final precisa ser igual ou depois da inicial. Mostrando o período atual.</p>}
       <div>
         <h2 className="font-titulo text-2xl font-bold">{periodo.rotulo}</h2>
         <p className="text-xs text-suave">Pagamento em {formatarDiaISO(periodo.pagamento)}{atual && " · período atual"}</p>
       </div>
-      {!atual && (
-        <Link href={`/comissoes${extra ? `?${extra.slice(1)}` : ""}`} className="ml-auto flex min-h-11 items-center rounded-lg border border-borda bg-cartao px-4 text-sm font-semibold">Período atual</Link>
-      )}
     </div>
   );
 }
@@ -101,7 +123,7 @@ async function extrato(supabase: Supabase, profId: string, p: Periodo) {
 // DONO: A pagar
 // ======================================================================
 
-async function APagar({ supabase, periodo, dias, acabouDePagar }: { supabase: Supabase; periodo: Periodo; dias: DiasPagamento; acabouDePagar: boolean }) {
+async function APagar({ supabase, periodo, dias, personalizar, faixaInvalida, acabouDePagar }: { supabase: Supabase; periodo: Periodo; dias: DiasPagamento; personalizar: boolean; faixaInvalida: boolean; acabouDePagar: boolean }) {
   const [{ data: profs }, { data: antigos }] = await Promise.all([
     supabase.from("profissionais").select("id, nome, cor, ativo").order("ordem").order("nome"),
     supabase.from("lancamentos_profissional").select("data").is("pagamento_id", null).lt("data", periodo.inicio),
@@ -118,7 +140,7 @@ async function APagar({ supabase, periodo, dias, acabouDePagar }: { supabase: Su
 
   return (
     <>
-      <SeletorPeriodo periodo={periodo} dias={dias} />
+      <SeletorPeriodo periodo={periodo} dias={dias} personalizar={personalizar} faixaInvalida={faixaInvalida} />
 
       {acabouDePagar && (
         <p role="status" className="flex items-center gap-2 rounded-lg border border-sucesso/30 bg-[#E3EFE5] px-3 py-2 text-sm font-semibold text-sucesso">
@@ -259,7 +281,7 @@ async function Pagas({ supabase, ver }: { supabase: Supabase; ver?: string }) {
 // PROFISSIONAL: os próprios valores
 // ======================================================================
 
-async function VisaoProfissional({ supabase, euId, periodo, dias }: { supabase: Supabase; euId: string; periodo: Periodo; dias: DiasPagamento }) {
+async function VisaoProfissional({ supabase, euId, periodo, dias, personalizar, faixaInvalida }: { supabase: Supabase; euId: string; periodo: Periodo; dias: DiasPagamento; personalizar: boolean; faixaInvalida: boolean }) {
   const [linhas, { data: pags }] = await Promise.all([
     extrato(supabase, euId, periodo),
     supabase.from("pagamentos_profissional").select("id, periodo_inicio, periodo_fim, data_pagamento, total_pago_centavos").order("data_pagamento", { ascending: false }).limit(12),
@@ -270,7 +292,7 @@ async function VisaoProfissional({ supabase, euId, periodo, dias }: { supabase: 
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
-      <SeletorPeriodo periodo={periodo} dias={dias} />
+      <SeletorPeriodo periodo={periodo} dias={dias} personalizar={personalizar} faixaInvalida={faixaInvalida} />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Cartao><p className="text-xs text-suave">Comissões</p><p className="text-xl font-bold">{formatarReais(somar(linhas, "comissao"))}</p></Cartao>
         <Cartao><p className="text-xs text-suave">Caixinhas</p><p className="text-xl font-bold">{formatarReais(somar(linhas, "caixinha"))}</p></Cartao>

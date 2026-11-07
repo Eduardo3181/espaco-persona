@@ -108,7 +108,7 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - Valores iniciais: em branco — o dono preenche pelo sistema. Eduardo não recebe comissão
 
 ### 5.2 Pagamento de comissões
-- Períodos: dia 1 a 15 (pago no dia 16) e dia 16 ao fim do mês (pago no dia 1)
+- Períodos fixos (07/11/2026): dia 1 a 15 e dia 16 ao fim do mês, ou **Personalizar** com datas escolhidas à mão. O pagamento é sugerido no próximo dia de pagamento depois do fim do período (dias em Configurações) e pode ser mudado ao registrar
 - Total = comissões + caixinhas do período. O pagamento dá baixa em tudo do período escolhido
 
 ### 5.3 Caixinha
@@ -174,7 +174,7 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - **Despesas (revisto em 06/11/2026)**: ficam na aba Gestão; Relatórios continua mostrando vendas, comissões, taxas e o que sobra para o salão
 - **LGPD**: excluir cliente apaga cadastro, ficha, anotações, saldo e agendamentos; comandas fechadas ficam no financeiro sem o nome
 - **Testes de segurança** em `supabase/tests/*.sql` (rodam e desfazem tudo): `npx supabase db query --linked -f supabase/tests/<arquivo>.sql`
-- **Configurações**: acesso de profissionais continua pelo e-mail em Equipe + criar o login no painel do Supabase (sem chave secreta no sistema). Dias de pagamento são **dois dias do mês configuráveis** (padrão 1 e 16): cada período vai de um dia de pagamento até a véspera do seguinte
+- **Configurações**: acesso de profissionais continua pelo e-mail em Equipe + criar o login no painel do Supabase (sem chave secreta no sistema). Dias de pagamento são **dois dias do mês configuráveis** (padrão 1 e 16) e definem só a data sugerida; os períodos são fixos, ver 5.2
 - **PWA**: ícone do app usa só o **símbolo** do logo sobre fundo escuro; o service worker não guarda dados (só a página offline). Instalação no celular só funciona depois de publicado (https)
 - **Equipe (18/10/2026)**: Valdete passou a ter perfil **dono** (comissão zerada em 06/11/2026: retira como pró-labore; os R$ 530,50 pendentes também foram zerados, com registro no log de auditoria); Di é profissional. Ordem na agenda: Eduardo, Valdete, Di (campo "Posição na agenda" em Equipe). Os testes de segurança usam a **Di** como profissional (login real, só em simulação)
 - **Atendimento com várias profissionais (19/10/2026)**: no novo agendamento o dono pode adicionar outras profissionais, cada uma com hora e serviços próprios; os horários ficam ligados (grupo_atendimento) e geram **uma comanda só**; fechar/reabrir/cancelar atualiza todos os horários ligados
