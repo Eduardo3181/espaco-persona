@@ -25,6 +25,18 @@
   --color-concluido-fundo: #EEEBE8;
   --color-concluido: #A39A95;
 
+  /* Status da agenda: cores fortes, bem diferentes entre si */
+  --color-st-aguardando: #FFD600;
+  --color-st-aguardando-borda: #B89B00;
+  --color-st-confirmado: #A020A8;
+  --color-st-confirmado-borda: #7A1880;
+  --color-st-atendimento: #0B72D9;
+  --color-st-atendimento-borda: #08549F;
+  --color-st-concluido: #1E8038;
+  --color-st-concluido-borda: #14592A;
+  --color-st-bloqueado: #6B4226;
+  --color-st-bloqueado-borda: #4A2C18;
+
   --font-sans: var(--font-jakarta);
   --font-titulo: var(--font-cormorant);
 }

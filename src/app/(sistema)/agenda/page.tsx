@@ -187,7 +187,7 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
                     return (
                       <Link key={a.id} href={`/agenda/${a.id}`}
                         className={`absolute inset-x-1 overflow-hidden rounded-md border-l-4 px-2 py-1 text-xs shadow-sm transition hover:brightness-95 ${
-                          bloqueio ? "border-suave bg-[repeating-linear-gradient(135deg,#EEEBE8,#EEEBE8_6px,#E6DFDA_6px,#E6DFDA_12px)] text-suave" : `${st.fundo} ${st.borda}`
+                          bloqueio ? "border-st-bloqueado-borda bg-st-bloqueado text-white" : `${st.fundo} ${st.borda} ${st.texto}`
                         }`}
                         style={{ top: topoMin * PX_POR_MIN + 1, height: altura - 2 }}>
                         <span className="font-semibold">{ini.hora}–{fim.hora}</span>{" "}
@@ -195,10 +195,10 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
                           <span className="font-semibold"><Lock size={11} className="inline" aria-hidden /> {a.motivo || "Bloqueado"}</span>
                         ) : (
                           <>
-                            {a.grupo_atendimento && <Link2 size={11} className="mr-0.5 inline text-atendimento" aria-label="Atendimento com outra profissional" />}
-                            {a.grupo_repeticao && <Repeat size={11} className="mr-0.5 inline text-rose" aria-label="Agendamento recorrente" />}
-                            <span className={`font-semibold ${st.texto}`}>{a.clientes?.nome}</span>
-                            <span className="block truncate text-texto/80">{nomesServicos(a)}</span>
+                            {a.grupo_atendimento && <Link2 size={11} className="mr-0.5 inline" aria-label="Atendimento com outra profissional" />}
+                            {a.grupo_repeticao && <Repeat size={11} className="mr-0.5 inline" aria-label="Agendamento recorrente" />}
+                            <span className="font-semibold">{a.clientes?.nome}</span>
+                            <span className="block truncate opacity-90">{nomesServicos(a)}</span>
                           </>
                         )}
                       </Link>
@@ -244,7 +244,7 @@ function Legenda() {
           <span className={`size-3 rounded-sm border-l-4 ${STATUS[s].fundo} ${STATUS[s].borda}`} aria-hidden /> {STATUS[s].rotulo}
         </li>
       ))}
-      <li className="flex items-center gap-2"><span className="size-3 rounded-sm bg-borda" aria-hidden /> Horário bloqueado</li>
+      <li className="flex items-center gap-2"><span className="size-3 rounded-sm border-l-4 border-st-bloqueado-borda bg-st-bloqueado" aria-hidden /> Horário bloqueado</li>
     </ul>
   );
 }

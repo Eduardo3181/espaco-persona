@@ -9,10 +9,10 @@ export const FUSO = "-03:00";
 export type StatusAgendamento = "aguardando" | "confirmado" | "em_atendimento" | "concluido" | "cancelado" | "faltou";
 
 export const STATUS: Record<StatusAgendamento, { rotulo: string; fundo: string; texto: string; borda: string }> = {
-  aguardando: { rotulo: "Aguardando confirmação", fundo: "bg-aguardando-fundo", texto: "text-aguardando", borda: "border-aguardando" },
-  confirmado: { rotulo: "Confirmado", fundo: "bg-agendado-fundo", texto: "text-agendado", borda: "border-agendado" },
-  em_atendimento: { rotulo: "Em atendimento", fundo: "bg-atendimento-fundo", texto: "text-atendimento", borda: "border-atendimento" },
-  concluido: { rotulo: "Concluído", fundo: "bg-concluido-fundo", texto: "text-suave", borda: "border-concluido" },
+  aguardando: { rotulo: "Aguardando confirmação", fundo: "bg-st-aguardando", texto: "text-texto", borda: "border-st-aguardando-borda" },
+  confirmado: { rotulo: "Confirmado", fundo: "bg-st-confirmado", texto: "text-white", borda: "border-st-confirmado-borda" },
+  em_atendimento: { rotulo: "Em atendimento", fundo: "bg-st-atendimento", texto: "text-white", borda: "border-st-atendimento-borda" },
+  concluido: { rotulo: "Concluído", fundo: "bg-st-concluido", texto: "text-white", borda: "border-st-concluido-borda" },
   cancelado: { rotulo: "Cancelou", fundo: "bg-concluido-fundo", texto: "text-erro", borda: "border-erro" },
   faltou: { rotulo: "Faltou", fundo: "bg-concluido-fundo", texto: "text-erro", borda: "border-erro" },
 };
