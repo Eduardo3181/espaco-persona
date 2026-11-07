@@ -129,7 +129,7 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - Cores:
   - Fundo `#F7F4F2`, cartões `#FFFFFF`, bordas `#E6DFDA`
   - Escuro/menu `#1C1B1F`, rosé (destaque) `#96604A`, rosé claro `#C8957B`, texto sobre escuro `#F0D3C2`
-  - Status na agenda (cores fortes, pedido do dono em 06/11/2026): aguardando confirmação amarelo suave `#FFE86B`, confirmado roxo `#A020A8`, em atendimento azul `#0B72D9`, concluído verde `#1E8038`, horário bloqueado marrom `#6B4226`
+  - Status na agenda (cores suaves e bem diferentes, pedido do dono em 06/11/2026; fundo / faixa lateral, texto escuro): aguardando confirmação amarelo `#FFF0A8`/`#D4B100`, confirmado roxo `#E8D6F5`/`#A020A8`, em atendimento azul `#CFE3FA`/`#0B72D9`, concluído verde `#D3EFD9`/`#1E8038`, horário bloqueado marrom `#E3D2C3`/`#6B4226`
   - Sucesso `#2F6B3A`, erro `#9B2C2C`
 - Fontes (Google Fonts): títulos **Cormorant Garamond** 700; texto **Plus Jakarta Sans**
 - Botões e áreas de toque com no mínimo 44px; contraste acessível; tudo funcionando bem no celular

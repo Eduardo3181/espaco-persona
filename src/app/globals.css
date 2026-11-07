@@ -25,17 +25,17 @@
   --color-concluido-fundo: #EEEBE8;
   --color-concluido: #A39A95;
 
-  /* Status da agenda: cores fortes, bem diferentes entre si */
-  --color-st-aguardando: #FFE86B;
+  /* Status da agenda: fundo suave e faixa lateral na cor forte, bem diferentes entre si */
+  --color-st-aguardando: #FFF0A8;
   --color-st-aguardando-borda: #D4B100;
-  --color-st-confirmado: #A020A8;
-  --color-st-confirmado-borda: #7A1880;
-  --color-st-atendimento: #0B72D9;
-  --color-st-atendimento-borda: #08549F;
-  --color-st-concluido: #1E8038;
-  --color-st-concluido-borda: #14592A;
-  --color-st-bloqueado: #6B4226;
-  --color-st-bloqueado-borda: #4A2C18;
+  --color-st-confirmado: #E8D6F5;
+  --color-st-confirmado-borda: #A020A8;
+  --color-st-atendimento: #CFE3FA;
+  --color-st-atendimento-borda: #0B72D9;
+  --color-st-concluido: #D3EFD9;
+  --color-st-concluido-borda: #1E8038;
+  --color-st-bloqueado: #E3D2C3;
+  --color-st-bloqueado-borda: #6B4226;
 
   --font-sans: var(--font-jakarta);
   --font-titulo: var(--font-cormorant);

@@ -187,7 +187,7 @@ export default async function PaginaAgenda({ searchParams }: PageProps<"/agenda"
                     return (
                       <Link key={a.id} href={`/agenda/${a.id}`}
                         className={`absolute inset-x-1 overflow-hidden rounded-md border-l-4 px-2 py-1 text-xs shadow-sm transition hover:brightness-95 ${
-                          bloqueio ? "border-st-bloqueado-borda bg-st-bloqueado text-white" : `${st.fundo} ${st.borda} ${st.texto}`
+                          bloqueio ? "border-st-bloqueado-borda bg-st-bloqueado text-texto" : `${st.fundo} ${st.borda} ${st.texto}`
                         }`}
                         style={{ top: topoMin * PX_POR_MIN + 1, height: altura - 2 }}>
                         <span className="font-semibold">{ini.hora}–{fim.hora}</span>{" "}
