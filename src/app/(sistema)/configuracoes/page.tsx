@@ -118,6 +118,10 @@ export default async function PaginaConfiguracoes({ searchParams }: PageProps<"/
             <textarea name="msg_aniversario" required rows={3} defaultValue={c?.msg_aniversario ?? ""} className={`${classeInput} py-2`} />
           </Campo>
           <p className="-mt-2 rounded-lg bg-fundo p-2 text-xs text-suave">Exemplo: {preencherMensagem(c?.msg_aniversario ?? "", exemplo)}</p>
+          <Campo rotulo="Retorno da cliente" dica="Use {cliente} e {servico}.">
+            <textarea name="msg_retorno" required rows={3} defaultValue={c?.msg_retorno ?? ""} className={`${classeInput} py-2`} />
+          </Campo>
+          <p className="-mt-2 rounded-lg bg-fundo p-2 text-xs text-suave">Exemplo: {preencherMensagem(c?.msg_retorno ?? "", { ...exemplo, servico: "Escova" })}</p>
           <div><BotaoEnviar>Salvar mensagens</BotaoEnviar></div>
         </FormAcao>
       </Cartao>

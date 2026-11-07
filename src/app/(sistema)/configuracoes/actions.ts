@@ -53,8 +53,9 @@ export async function salvarMensagens(_e: EstadoForm, dados: FormData): Promise<
   await exigirDono();
   const confirmacao = texto(dados, "msg_confirmacao");
   const aniversario = texto(dados, "msg_aniversario");
-  if (!confirmacao || !aniversario) return { erro: "As duas mensagens precisam ter texto." };
-  const erro = await gravar({ msg_confirmacao: confirmacao, msg_aniversario: aniversario });
+  const retorno = texto(dados, "msg_retorno");
+  if (!confirmacao || !aniversario || !retorno) return { erro: "As mensagens precisam ter texto." };
+  const erro = await gravar({ msg_confirmacao: confirmacao, msg_aniversario: aniversario, msg_retorno: retorno });
   if (erro) return erro;
   redirect("/configuracoes?salvo=mensagens");
 }

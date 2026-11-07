@@ -7,6 +7,7 @@ import { formatarReais, hojeISO } from "@/lib/formato";
 import { periodoDaData } from "@/lib/periodo";
 import { obterConfigEquipe } from "@/lib/config";
 import { Aniversariantes } from "@/components/aniversariantes";
+import { RetornosDoDia } from "@/components/retornos-do-dia";
 
 export default async function Inicio() {
   const { profissional } = await exigirEquipe();
@@ -70,6 +71,8 @@ export default async function Inicio() {
           <span className="font-medium">{a.texto}</span>
         </Link>
       ))}
+
+      {ehDono && <RetornosDoDia />}
 
       <Aniversariantes />
 

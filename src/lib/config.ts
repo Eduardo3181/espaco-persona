@@ -22,6 +22,6 @@ export const obterConfigEquipe = cache(async (): Promise<ConfigEquipe> => {
 });
 
 /** Troca {cliente}, {data}, {hora}, {profissional} pelo valor */
-export function preencherMensagem(modelo: string, valores: Partial<Record<"cliente" | "data" | "hora" | "profissional", string>>) {
-  return modelo.replace(/\{(cliente|data|hora|profissional)\}/g, (_, chave: keyof typeof valores) => valores[chave] ?? "");
+export function preencherMensagem(modelo: string, valores: Partial<Record<"cliente" | "data" | "hora" | "profissional" | "servico", string>>) {
+  return modelo.replace(/\{(cliente|data|hora|profissional|servico)\}/g, (_, chave: keyof typeof valores) => valores[chave] ?? "");
 }

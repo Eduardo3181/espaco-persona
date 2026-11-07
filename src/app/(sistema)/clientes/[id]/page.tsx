@@ -11,6 +11,7 @@ import {
   MESES,
 } from "@/lib/formato";
 import { STATUS, dataPorExtenso, partesSP, type StatusAgendamento } from "@/lib/agenda";
+import { RetornosCliente } from "./retornos";
 import { apagarAnotacao, apagarMovimento, criarAnotacao, editarAnotacao, lancarSaldo, salvarFicha } from "../actions";
 
 export const metadata: Metadata = { title: "Ficha da cliente" };
@@ -225,6 +226,9 @@ export default async function FichaCliente({ params, searchParams }: PageProps<"
           )}
         </Cartao>
       </div>
+
+      {/* Retorno da cliente (só dono) */}
+      {ehDono && <RetornosCliente clienteId={cliente.id} />}
 
       {/* Saldo na casa (só dono) */}
       {ehDono && (

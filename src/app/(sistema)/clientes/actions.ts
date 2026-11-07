@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { exigirDono, exigirEquipe } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
-import { normalizarTelefone, reaisParaCentavos } from "@/lib/formato";
+import { hojeISO, normalizarTelefone, reaisParaCentavos } from "@/lib/formato";
+import { dataValida, somarDias } from "@/lib/agenda";
+import { somarMeses } from "@/lib/gestao";
 import type { EstadoForm } from "@/components/formulario";
 
 const texto = (d: FormData, campo: string) => String(d.get(campo) ?? "").trim();
@@ -164,4 +166,54 @@ export async function apagarMovimento(_e: EstadoForm, dados: FormData): Promise<
   revalidatePath(`/clientes/${cliente_id}`);
   revalidatePath("/clientes");
   redirect(`/clientes/${cliente_id}#saldo`);
+}
+
+// ---------------------------------------------------------------- Retorno (só dono)
+
+export async function criarRetorno(_e: EstadoForm, dados: FormData): Promise<EstadoForm> {
+  await exigirDono();
+  const cliente_id = texto(dados, "cliente_id");
+  const servico_id = texto(dados, "servico_id");
+  const modo = texto(dados, "modo");
+  const hoje = hojeISO();
+  if (!servico_id) return { erro: "Escolha o serviço." };
+
+  let data_retorno = "";
+  if (modo === "personalizar") {
+    data_retorno = texto(dados, "data");
+    if (!dataValida(data_retorno) || data_retorno < hoje) return { erro: "Escolha uma data de hoje em diante." };
+  } else {
+    const quantidade = Number(texto(dados, "quantidade"));
+    if (!Number.isInteger(quantidade) || quantidade < 1 || quantidade > 120) return { erro: "Informe um número de semanas ou meses." };
+    if (modo === "semanas") data_retorno = somarDias(hoje, quantidade * 7);
+    else if (modo === "meses") data_retorno = somarMeses(hoje, quantidade);
+    else return { erro: "Escolha semanas, meses ou uma data." };
+  }
+
+  const supabase = await criarClienteServidor();
+  const { error } = await supabase.from("retornos_clientes").insert({ cliente_id, servico_id, data_retorno });
+  if (error) return { erro: "Não foi possível criar o alerta." };
+  revalidatePath(`/clientes/${cliente_id}`);
+  revalidatePath("/");
+  redirect(`/clientes/${cliente_id}#retorno`);
+}
+
+const voltaSegura = (volta: string) => (volta === "/" || volta.startsWith("/clientes/") ? volta : "/");
+
+export async function marcarRetornoAvisado(_e: EstadoForm, dados: FormData): Promise<EstadoForm> {
+  await exigirDono();
+  const supabase = await criarClienteServidor();
+  const { error } = await supabase.from("retornos_clientes").update({ avisado_em: new Date().toISOString() }).eq("id", texto(dados, "id"));
+  if (error) return { erro: "Não foi possível registrar o aviso." };
+  revalidatePath("/", "layout");
+  redirect(voltaSegura(texto(dados, "volta")));
+}
+
+export async function excluirRetorno(_e: EstadoForm, dados: FormData): Promise<EstadoForm> {
+  await exigirDono();
+  const supabase = await criarClienteServidor();
+  const { error } = await supabase.from("retornos_clientes").delete().eq("id", texto(dados, "id"));
+  if (error) return { erro: "Não foi possível excluir." };
+  revalidatePath("/", "layout");
+  redirect(voltaSegura(texto(dados, "volta")));
 }
