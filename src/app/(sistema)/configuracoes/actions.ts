@@ -22,6 +22,7 @@ export async function salvarFinanceiro(_e: EstadoForm, dados: FormData): Promise
   const debito = lerPercentual(texto(dados, "taxa_debito"));
   const credito = lerPercentual(texto(dados, "taxa_credito"));
   const pix = lerPercentual(texto(dados, "taxa_pix") || "0");
+  const descontoPix = lerPercentual(texto(dados, "desconto_pix") || "0");
   // Parcelamentos: em branco = opção não aparece na comanda
   const credito2x = lerPercentual(texto(dados, "taxa_credito_2x"));
   const credito3x = lerPercentual(texto(dados, "taxa_credito_3x"));
@@ -31,6 +32,7 @@ export async function salvarFinanceiro(_e: EstadoForm, dados: FormData): Promise
   for (const t of [debito, credito, pix]) {
     if (t === null || Number.isNaN(t)) return { erro: "Taxas devem ser números entre 0 e 100 (ex.: 3,49)." };
   }
+  if (descontoPix === null || Number.isNaN(descontoPix) || descontoPix >= 100) return { erro: "Desconto do Pix: use um número de 0 a 99 (ex.: 3)." };
   for (const t of [credito2x, credito3x, credito4x]) {
     if (Number.isNaN(t)) return { erro: "Taxas devem ser números entre 0 e 100 (ex.: 3,49)." };
   }
@@ -38,7 +40,7 @@ export async function salvarFinanceiro(_e: EstadoForm, dados: FormData): Promise
     return { erro: "Dias de pagamento: dois dias diferentes entre 1 e 28, o primeiro menor que o segundo." };
   }
   const erro = await gravar({
-    taxa_debito: debito, taxa_credito: credito, taxa_pix: pix,
+    taxa_debito: debito, taxa_credito: credito, taxa_pix: pix, desconto_pix: descontoPix,
     taxa_credito_2x: credito2x, taxa_credito_3x: credito3x, taxa_credito_4x: credito4x,
     caixinha_desconta_taxa: dados.get("caixinha_desconta_taxa") === "on",
     dias_pagamento: [dia1, dia2],

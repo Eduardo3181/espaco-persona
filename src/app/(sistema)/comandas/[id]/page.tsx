@@ -113,7 +113,7 @@ async function ComandaDono({ id, supabase, acabouDeFechar, juntada }: { id: stri
   const [cat, { data: regras }, { data: cfg }, { data: saldoLinha }, { data: abertas }] = await Promise.all([
     catalogo(supabase),
     supabase.from("regras_comissao").select("*"),
-    supabase.from("configuracoes").select("taxa_credito, taxa_credito_2x, taxa_credito_3x, taxa_credito_4x, taxa_debito, taxa_pix").single(),
+    supabase.from("configuracoes").select("taxa_credito, taxa_credito_2x, taxa_credito_3x, taxa_credito_4x, taxa_debito, taxa_pix, desconto_pix").single(),
     c.cliente_id ? supabase.from("saldos_clientes").select("saldo_centavos").eq("cliente_id", c.cliente_id).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from("comandas").select("id, numero, cliente_id, clientes(nome)").eq("status", "aberta").order("aberta_em"),
   ]);
@@ -259,6 +259,7 @@ async function ComandaDono({ id, supabase, acabouDeFechar, juntada }: { id: stri
                     .filter(([, taxa]) => taxa != null)
                     .map(([n, taxa]) => [n, Number(taxa)]),
                 )}
+                descontoPix={Number(cfg?.desconto_pix ?? 0)}
                 temCliente={Boolean(c.cliente_id)}
                 saldoCliente={(saldoLinha as { saldo_centavos: number } | null)?.saldo_centavos ?? 0}
                 atendimento={diaDoAtendimento(c.agendamentos?.inicio ?? null, c.data_atendimento)}
@@ -282,7 +283,7 @@ async function ComandaDono({ id, supabase, acabouDeFechar, juntada }: { id: stri
 
 function ResumoFechada({ c }: {
   c: { id: string; status: string; data_atendimento: string | null; fechada_em: string | null; cancelada_em: string | null; motivo: string | null;
-    total_itens_centavos: number | null; total_caixinhas_centavos: number | null; total_taxas_centavos: number | null; total_comissoes_centavos: number | null;
+    total_itens_centavos: number | null; total_desconto_centavos: number; total_caixinhas_centavos: number | null; total_taxas_centavos: number | null; total_comissoes_centavos: number | null;
     comanda_caixinhas: { profissional_id: string; valor_centavos: number }[];
     comanda_pagamentos: { ordem: number; forma: string; valor_centavos: number; parcelas: number; taxa_percentual: number | null; taxa_centavos: number | null }[] };
 }) {
@@ -308,7 +309,13 @@ function ResumoFechada({ c }: {
           ))}
         </ul>
         <dl className="grid grid-cols-[1fr_auto] gap-y-1 border-t border-borda pt-2 text-sm">
-          <dt>Itens (faturamento)</dt><dd className="text-right">{formatarReais(c.total_itens_centavos ?? 0)}</dd>
+          {c.total_desconto_centavos > 0 && (
+            <>
+              <dt>Itens</dt><dd className="text-right">{formatarReais((c.total_itens_centavos ?? 0) + c.total_desconto_centavos)}</dd>
+              <dt>Desconto do Pix</dt><dd className="text-right">− {formatarReais(c.total_desconto_centavos)}</dd>
+            </>
+          )}
+          <dt>{c.total_desconto_centavos > 0 ? "Faturamento" : "Itens (faturamento)"}</dt><dd className="text-right">{formatarReais(c.total_itens_centavos ?? 0)}</dd>
           <dt>Caixinhas (repasse)</dt><dd className="text-right">{formatarReais(c.total_caixinhas_centavos ?? 0)}</dd>
           <dt className="text-suave">Taxas da maquininha</dt><dd className="text-right text-suave">− {formatarReais(c.total_taxas_centavos ?? 0)}</dd>
           <dt className="font-bold">Total recebido</dt><dd className="text-right font-bold">{formatarReais(recebido)}</dd>

@@ -53,6 +53,9 @@ export default async function PaginaConfiguracoes({ searchParams }: PageProps<"/
       <Cartao>
         <h2 className="mb-4 text-lg font-semibold">Maquininha, caixinha e pagamento de comissões</h2>
         <FormAcao acao={salvarFinanceiro} className="flex flex-col gap-5">
+          <Campo rotulo="Desconto para pagamento em Pix (%)" dica="Automático ao fechar a comanda, só na parte paga em Pix e sem a caixinha. A comissão continua sobre o valor cheio. Use 0 para não dar desconto.">
+            <input name="desconto_pix" inputMode="decimal" required defaultValue={paraCampo(c?.desconto_pix ?? 3)} className={`${campoCurto} w-28`} />
+          </Campo>
           <fieldset>
             <legend className="mb-2 text-sm font-semibold">Taxas da maquininha (%)</legend>
             <div className="flex flex-wrap gap-3">

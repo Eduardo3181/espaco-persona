@@ -6,7 +6,7 @@ import { MensagemErro } from "@/components/formulario";
 import { classeBotao, classeInput } from "@/components/ui";
 
 const campoEstreito = classeInput.replace("w-full ", "");
-import { centavosParaCampo, formatarDiaISO, formatarReais, reaisParaCentavos } from "@/lib/formato";
+import { centavosParaCampo, formatarDiaISO, formatarPercentual, formatarReais, reaisParaCentavos } from "@/lib/formato";
 import { fecharComanda, manterAberta } from "../actions";
 
 export type ItemFechamento = {
@@ -30,7 +30,7 @@ const FORMAS: { id: Forma; rotulo: string }[] = [
 
 type Linha = { forma: Forma; valor: string; parcelas: number };
 
-export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais, pagamentosIniciais, taxas, taxasCredito, temCliente, saldoCliente, atendimento }: {
+export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais, pagamentosIniciais, taxas, taxasCredito, descontoPix, temCliente, saldoCliente, atendimento }: {
   comandaId: string;
   itens: ItemFechamento[];
   profissionais: { id: string; nome: string }[];
@@ -39,6 +39,8 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
   taxas: Record<Forma, number>;
   /** Taxa de cada parcelamento do crédito cadastrado (1x sempre existe) */
   taxasCredito: Record<number, number>;
+  /** Desconto automático no Pix, em % (0 = sem desconto) */
+  descontoPix: number;
   temCliente: boolean;
   saldoCliente: number;
   /** Dia em que a comanda entra no faturamento; só a avulsa pode escolher */
@@ -61,16 +63,24 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
   const totalItens = itens.reduce((t, i) => t + i.total, 0);
   const caixinhaCent = (id: string) => reaisParaCentavos(caixinhas[id] || "0") ?? 0;
   const totalCaixinhas = profissionais.reduce((t, p) => t + caixinhaCent(p.id), 0);
-  const totalReceber = totalItens + totalCaixinhas;
+  const totalBruto = totalItens + totalCaixinhas;
 
   // A última linha recebe automaticamente o que falta
   const fixas = linhas.slice(0, -1).map((l) => reaisParaCentavos(l.valor || "0") ?? 0);
   const somaFixas = fixas.reduce((t, v) => t + v, 0);
-  const restante = totalReceber - somaFixas;
+  const restante = totalBruto - somaFixas;
   const valores = [...fixas, Math.max(restante, 0)];
+  // Desconto do Pix: igual ao fechar_comanda do banco (só a parte em Pix, sem a caixinha)
+  const totalPix = linhas.reduce((t, l, i) => t + (l.forma === "pix" ? valores[i] : 0), 0);
+  const desconto = totalPix > 0 && totalBruto > 0 ? Math.round((totalPix * totalItens * descontoPix) / (totalBruto * 100)) : 0;
+  const totalReceber = totalBruto - desconto;
+  const ultimaPix = linhas.map((l) => l.forma).lastIndexOf("pix");
+  const descontosPix = linhas.map((l, i) => (l.forma === "pix" && i !== ultimaPix && totalPix > 0 ? Math.round((desconto * valores[i]) / totalPix) : 0));
+  if (ultimaPix >= 0) descontosPix[ultimaPix] = desconto - descontosPix.reduce((t, v) => t + v, 0);
+  const aPagar = valores.map((v, i) => v - descontosPix[i]);
   const percentualDe = (l: Linha) => (l.forma === "credito" ? taxasCredito[l.parcelas] ?? 0 : taxas[l.forma] ?? 0);
   const opcoesParcelas = Object.keys(taxasCredito).map(Number).sort((a, b) => a - b);
-  const taxaTotal = linhas.reduce((t, l, i) => t + Math.round((valores[i] * percentualDe(l)) / 100), 0);
+  const taxaTotal = linhas.reduce((t, l, i) => t + Math.round((aPagar[i] * percentualDe(l)) / 100), 0);
   const semRegra = itens.filter((i) => i.percentual === null);
   const usaSaldo = linhas.some((l, i) => l.forma === "saldo" && valores[i] > 0);
   const valorSaldo = linhas.reduce((t, l, i) => t + (l.forma === "saldo" ? valores[i] : 0), 0);
@@ -154,8 +164,11 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
                     ))}
                   </select>
                 )}
+                {descontosPix[i] > 0 && (
+                  <span className="text-sm">com desconto, a cliente paga <strong>{formatarReais(aPagar[i])}</strong></span>
+                )}
                 {percentualDe(l) > 0 && valores[i] > 0 && (
-                  <span className="text-xs text-suave">taxa {formatarReais(Math.round((valores[i] * percentualDe(l)) / 100))}</span>
+                  <span className="text-xs text-suave">taxa {formatarReais(Math.round((aPagar[i] * percentualDe(l)) / 100))}</span>
                 )}
                 {linhas.length > 1 && (
                   <button type="button" onClick={() => setLinhas(linhas.filter((_, j) => j !== i))}
@@ -188,6 +201,7 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
       <section className="rounded-lg bg-fundo p-4 text-sm">
         <dl className="grid grid-cols-[1fr_auto] gap-y-1">
           <dt>Itens</dt><dd className="text-right">{formatarReais(totalItens)}</dd>
+          {desconto > 0 && <><dt>Desconto do Pix ({formatarPercentual(descontoPix)})</dt><dd className="text-right">− {formatarReais(desconto)}</dd></>}
           <dt>Caixinhas</dt><dd className="text-right">{formatarReais(totalCaixinhas)}</dd>
           <dt className="text-suave">Taxa da maquininha (estimada)</dt><dd className="text-right text-suave">− {formatarReais(taxaTotal)}</dd>
           <dt className="mt-2 border-t border-borda pt-2 text-base font-bold">Total a receber</dt>

@@ -102,7 +102,7 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 ### 5.1 Comissão
 - Regra em três níveis; vale sempre a **mais específica**: exceção por serviço → por categoria → padrão da profissional
 - Produtos: comissão de venda própria (padrão 10%)
-- Comissão calculada sobre o **valor cheio do item** (sem descontar taxa da maquininha). Confirmado pelo dono; o salão não dá desconto (o valor do item pode ser ajustado à mão)
+- Comissão calculada sobre o **valor cheio do item** (sem descontar taxa da maquininha). Confirmado pelo dono; o único desconto é o automático do Pix (seção 5.4), que não reduz a comissão (o valor do item também pode ser ajustado à mão)
 - Ao fechar a comanda, **gravar o percentual usado em cada item**, para que mudanças futuras de regra não alterem o histórico
 - Valores iniciais: em branco — o dono preenche pelo sistema. Eduardo não recebe comissão
 
@@ -119,6 +119,7 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 ### 5.4 Financeiro
 - Faturamento = itens das comandas fechadas (sem caixinhas)
 - Taxa da maquininha calculada por forma de pagamento e registrada na comanda
+- **Desconto do Pix (06/11/2026)**: automático ao fechar a comanda, padrão 3% (Configurações). Vale só sobre a parte paga em Pix, sem a caixinha; pagamento dividido usa a fatia proporcional dos itens. O salão assume o desconto: comissão sobre o valor cheio; faturamento e total recebido já sem o desconto. Reabrir devolve o valor cheio, e a comanda recalcula ao fechar de novo
 - Em Relatórios: resultado = faturamento − comissões − taxas. Em Gestão: desconta também as despesas lançadas
 
 ## 6. Identidade visual

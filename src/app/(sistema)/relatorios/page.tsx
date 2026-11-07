@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Relatórios" };
 type Modo = "dia" | "semana" | "mes" | "personalizado";
 
 type Relatorio = {
-  totais: { faturamento: number; caixinhas: number; taxas: number; comissoes: number; comandas: number; clientes: number };
+  totais: { faturamento: number; descontos: number; caixinhas: number; taxas: number; comissoes: number; comandas: number; clientes: number };
   por_dia: { dia: string; valor: number }[];
   por_item: { tipo: string; descricao: string; quantidade: number; valor: number }[];
   por_forma: { forma: string; valor: number; taxa: number }[];
@@ -57,7 +57,7 @@ export default async function PaginaRelatorios({ searchParams }: PageProps<"/rel
   const supabase = await criarClienteServidor();
   const { data } = await supabase.rpc("relatorio_vendas", { p_inicio: inicio, p_fim: fim });
   const r = data as Relatorio | null;
-  const t = r?.totais ?? { faturamento: 0, caixinhas: 0, taxas: 0, comissoes: 0, comandas: 0, clientes: 0 };
+  const t = r?.totais ?? { faturamento: 0, descontos: 0, caixinhas: 0, taxas: 0, comissoes: 0, comandas: 0, clientes: 0 };
   const resultado = t.faturamento - t.comissoes - t.taxas;
 
   // Todos os dias do período, inclusive os sem venda
@@ -98,7 +98,7 @@ export default async function PaginaRelatorios({ searchParams }: PageProps<"/rel
 
       {/* Visão geral */}
       <section aria-label="Visão geral" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Indicador rotulo="Vendas (faturamento)" valor={formatarReais(t.faturamento)} destaque />
+        <Indicador rotulo="Vendas (faturamento)" valor={formatarReais(t.faturamento)} destaque dica={t.descontos > 0 ? `já sem ${formatarReais(t.descontos)} de desconto do Pix` : undefined} />
         <Indicador rotulo="Comissões" valor={formatarReais(t.comissoes)} />
         <Indicador rotulo="Taxas da maquininha" valor={formatarReais(t.taxas)} />
         <Indicador rotulo="Resultado" valor={formatarReais(resultado)} destaque dica="vendas − comissões − taxas" />
@@ -127,6 +127,7 @@ export default async function PaginaRelatorios({ searchParams }: PageProps<"/rel
           <div className="grid gap-5 lg:grid-cols-2">
             <Cartao>
               <h3 className="mb-3 font-semibold">Por profissional</h3>
+              {t.descontos > 0 && <p className="mb-3 text-xs text-suave">Valores cheios dos itens, antes do desconto do Pix.</p>}
               <ul className="flex flex-col gap-3 text-sm">
                 {(r?.por_profissional ?? []).map((p) => (
                   <li key={p.profissional_id} className="rounded-lg bg-fundo p-3">
@@ -150,6 +151,7 @@ export default async function PaginaRelatorios({ searchParams }: PageProps<"/rel
 
           <Cartao>
             <h3 className="mb-3 font-semibold">Por item (serviços e produtos)</h3>
+            {t.descontos > 0 && <p className="mb-3 text-xs text-suave">Valores cheios dos itens, antes do desconto do Pix.</p>}
             <ListaComBarra linhas={(r?.por_item ?? []).slice(0, 20).map((i) => ({
               chave: `${i.tipo}-${i.descricao}`, rotulo: i.descricao,
               detalhe: `${i.quantidade}× ${i.tipo === "produto" ? "produto" : "serviço"}`, valor: i.valor,
