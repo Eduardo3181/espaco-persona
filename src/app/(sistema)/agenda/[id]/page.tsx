@@ -6,7 +6,7 @@ import { BotaoEnviar, FormAcao } from "@/components/formulario";
 import { BotaoLink, Cartao } from "@/components/ui";
 import { exigirEquipe } from "@/lib/sessao";
 import { criarClienteServidor } from "@/lib/supabase/server";
-import { formatarDuracao, formatarTelefone, linkWhatsApp } from "@/lib/formato";
+import { formatarDuracao, formatarReais, formatarTelefone, linkWhatsApp } from "@/lib/formato";
 import { STATUS, dataPorExtenso, partesSP, type StatusAgendamento } from "@/lib/agenda";
 import { excluirAgendamento, excluirBloqueio, mudarStatus } from "../actions";
 import { horariosAbertosDaSerie } from "../dados";
@@ -29,6 +29,17 @@ type Detalhe = {
   profissionais: { id: string; nome: string; cor: string } | null;
   clientes: { id: string; nome: string; telefone: string | null } | null;
   agendamento_servicos: { ordem: number; duracao_min: number; servicos: { nome: string } | null }[];
+};
+
+type ComandaFechada = {
+  id: string;
+  total_itens_centavos: number | null;
+  total_desconto_centavos: number;
+  total_caixinhas_centavos: number | null;
+  comanda_itens: {
+    id: string; descricao: string; quantidade: number; valor_total_centavos: number; profissional_id: string;
+    profissionais: { nome: string } | null;
+  }[];
 };
 
 export default async function DetalheAgendamento({ params }: PageProps<"/agenda/[id]">) {
@@ -56,11 +67,19 @@ export default async function DetalheAgendamento({ params }: PageProps<"/agenda/
   }
 
   // Comanda fechada deste agendamento (só o dono enxerga comandas)
-  let comandaFechadaId: string | null = null;
+  let comandaFechada: ComandaFechada | null = null;
   if (a.status === "concluido" && eu.papel === "dono") {
-    const { data: cf } = await supabase.from("comandas").select("id").eq("agendamento_id", a.id).eq("status", "fechada").maybeSingle();
-    comandaFechadaId = cf?.id ?? null;
+    // Atendimento com outros horários ligados: a comanda única pode estar em nome de outro horário
+    const { data: cf } = await supabase.from("comandas")
+      .select("id, total_itens_centavos, total_desconto_centavos, total_caixinhas_centavos, comanda_itens(id, descricao, quantidade, valor_total_centavos, profissional_id, profissionais!comanda_itens_profissional_id_fkey(nome))")
+      .or(a.grupo_atendimento ? `agendamento_id.eq.${a.id},grupo_atendimento.eq.${a.grupo_atendimento}` : `agendamento_id.eq.${a.id}`)
+      .eq("status", "fechada")
+      .order("fechada_em", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    comandaFechada = cf as unknown as ComandaFechada | null;
   }
+  const comandaFechadaId = comandaFechada?.id ?? null;
 
   const ini = partesSP(a.inicio);
   const fim = partesSP(a.fim);
@@ -144,7 +163,33 @@ export default async function DetalheAgendamento({ params }: PageProps<"/agenda/
           <dd className="flex items-center gap-2"><span className="size-3 rounded-full" style={{ background: a.profissionais?.cor }} aria-hidden />{a.profissionais?.nome}</dd>
           <dt className="text-suave">Serviços</dt>
           <dd>
-            <ul>{servicos.map((s) => <li key={s.ordem}>{s.servicos?.nome} <span className="text-suave">· {formatarDuracao(s.duracao_min)}</span></li>)}</ul>
+            {comandaFechada ? (
+              <div className="flex flex-col gap-1">
+                <ul className="flex flex-col gap-1">
+                  {comandaFechada.comanda_itens.map((i) => (
+                    <li key={i.id} className="flex items-baseline justify-between gap-3">
+                      <span>
+                        {i.quantidade > 1 && `${i.quantidade}× `}{i.descricao}
+                        {i.profissional_id !== a.profissionais?.id && <span className="text-suave"> · {i.profissionais?.nome.split(" ")[0]}</span>}
+                      </span>
+                      <span className="shrink-0">{formatarReais(i.valor_total_centavos)}</span>
+                    </li>
+                  ))}
+                </ul>
+                {comandaFechada.total_desconto_centavos > 0 && (
+                  <p className="flex justify-between gap-3 text-suave"><span>Desconto do Pix</span><span>− {formatarReais(comandaFechada.total_desconto_centavos)}</span></p>
+                )}
+                {(comandaFechada.total_caixinhas_centavos ?? 0) > 0 && (
+                  <p className="flex justify-between gap-3 text-suave"><span>Caixinha</span><span>{formatarReais(comandaFechada.total_caixinhas_centavos ?? 0)}</span></p>
+                )}
+                <p className="mt-1 flex justify-between gap-3 border-t border-borda pt-2 text-base font-bold">
+                  <span>Total da comanda</span>
+                  <span>{formatarReais((comandaFechada.total_itens_centavos ?? 0) + (comandaFechada.total_caixinhas_centavos ?? 0))}</span>
+                </p>
+              </div>
+            ) : (
+              <ul>{servicos.map((s) => <li key={s.ordem}>{s.servicos?.nome} <span className="text-suave">· {formatarDuracao(s.duracao_min)}</span></li>)}</ul>
+            )}
           </dd>
           {a.observacao && <><dt className="text-suave">Observação</dt><dd>{a.observacao}</dd></>}
           {emSerie && (
