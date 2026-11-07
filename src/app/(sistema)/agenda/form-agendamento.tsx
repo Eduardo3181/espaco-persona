@@ -54,6 +54,7 @@ export function FormAgendamento({ profissionais, podeEscolherProf, servicos, blo
   ]);
 
   const [data, setData] = useState(inicial.data);
+  const [assinaturaEnviada, setAssinaturaEnviada] = useState("");
   const [recorrencia, setRecorrencia] = useState<Recorrencia | "">("");
   const [ateEscolhido, setAteEscolhido] = useState<string | null>(null);
 
@@ -93,9 +94,12 @@ export function FormAgendamento({ profissionais, podeEscolherProf, servicos, blo
   const blocosJson = JSON.stringify(blocos.map((b) => ({
     profissional_id: b.profissional_id, hora: b.hora, servicos: b.servicos, duracao: duracaoDe(b),
   })));
+  // A pergunta vale só para o que foi enviado: mudou data ou horário, confere de novo
+  const assinatura = `${data}|${blocosJson}|${recorrencia}|${repetirAte}`;
+  const pergunta = estado?.confirmar && assinaturaEnviada === assinatura ? estado.confirmar : null;
 
   return (
-    <form onSubmit={aoEnviar} className="grid gap-5 sm:grid-cols-2">
+    <form onSubmit={(e) => { setAssinaturaEnviada(assinatura); aoEnviar(e); }} className="grid gap-5 sm:grid-cols-2">
       <MensagemErro erro={estado?.erro} />
       <input type="hidden" name="id" value={inicial.id ?? ""} />
       <input type="hidden" name="blocos" value={blocosJson} />
@@ -294,10 +298,22 @@ export function FormAgendamento({ profissionais, podeEscolherProf, servicos, blo
         </fieldset>
       )}
 
-      <div className="flex gap-3 sm:col-span-2">
-        <BotaoEnviar pendenteExterno={pendente}>Salvar agendamento</BotaoEnviar>
-        <a href={voltarHref} className={classeBotao("secundario")}>Cancelar</a>
-      </div>
+      {pergunta ? (
+        <div role="alert" className="flex flex-col gap-3 rounded-xl border border-aguardando/40 bg-aguardando-fundo p-4 text-sm sm:col-span-2">
+          <p className="font-semibold text-texto">{pergunta}</p>
+          <div className="flex flex-wrap gap-3">
+            <button type="submit" name="confirmou_horario" value="1" disabled={pendente} className={classeBotao("primario")}>
+              {pendente ? "Salvando…" : "Sim, continuar"}
+            </button>
+            <button type="button" onClick={() => setAssinaturaEnviada("")} className={classeBotao("secundario")}>Não, voltar</button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-3 sm:col-span-2">
+          <BotaoEnviar pendenteExterno={pendente}>Salvar agendamento</BotaoEnviar>
+          <a href={voltarHref} className={classeBotao("secundario")}>Cancelar</a>
+        </div>
+      )}
     </form>
   );
 }

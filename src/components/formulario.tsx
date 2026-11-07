@@ -5,7 +5,7 @@ import { useFormStatus } from "react-dom";
 import { classeBotao } from "@/components/ui";
 
 /** Resultado de uma ação de formulário: mensagem de erro para mostrar na tela. */
-export type EstadoForm = { erro?: string } | null;
+export type EstadoForm = { erro?: string; confirmar?: string } | null;
 export type AcaoForm = (estado: EstadoForm, dados: FormData) => Promise<EstadoForm>;
 
 const Pendente = createContext(false);

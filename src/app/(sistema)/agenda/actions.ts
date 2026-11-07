@@ -49,6 +49,33 @@ async function ocupadosNoPeriodo(supabase: Supabase, profissionalId: string, ini
 const sobrepoe = (a: { inicio: string; fim: string }, b: { inicio: string; fim: string }) =>
   new Date(a.inicio) < new Date(b.fim) && new Date(b.inicio) < new Date(a.fim);
 
+/** Monta a pergunta quando já há cliente nos horários pedidos; sem coincidência, null. */
+async function perguntaMesmoHorario(
+  supabase: Supabase, periodos: { profissional_id: string; inicio: string; fim: string }[], ignorar: { id?: string | null; grupo?: string | null },
+) {
+  const instantes = periodos.flatMap((p) => [p.inicio, p.fim]).map((i) => new Date(i).getTime());
+  const { data } = await supabase
+    .from("agendamentos")
+    .select("id, profissional_id, inicio, fim, grupo_repeticao, clientes(nome)")
+    .in("profissional_id", [...new Set(periodos.map((p) => p.profissional_id))])
+    .eq("tipo", "atendimento")
+    .not("status", "in", "(cancelado,faltou)")
+    .lt("inicio", new Date(Math.max(...instantes)).toISOString())
+    .gt("fim", new Date(Math.min(...instantes)).toISOString());
+  const outros = ((data ?? []) as unknown as { id: string; profissional_id: string; inicio: string; fim: string; grupo_repeticao: string | null; clientes: { nome: string } | null }[])
+    .filter((o) => o.id !== ignorar.id && !(ignorar.grupo && o.grupo_repeticao === ignorar.grupo));
+  const coincidem = outros.filter((o) => periodos.some((p) => p.profissional_id === o.profissional_id && sobrepoe(o, p)));
+  if (!coincidem.length) return null;
+  if (coincidem.length === 1) {
+    const o = coincidem[0];
+    return `Já existe cliente neste horário: ${o.clientes?.nome ?? "outro agendamento"}, das ${partesSP(o.inicio).hora} às ${partesSP(o.fim).hora}. Deseja continuar?`;
+  }
+  const dias = [...new Set(coincidem.map((o) => partesSP(o.inicio).data))].sort();
+  if (dias.length === 1) return `Já existem ${coincidem.length} clientes neste horário. Deseja continuar?`;
+  const nomes = dias.slice(0, 5).map((d) => d.split("-").reverse().slice(0, 2).join("/")).join(", ");
+  return `Já existe cliente neste horário em ${nomes}${dias.length > 5 ? ` e mais ${dias.length - 5} data(s)` : ""}. Deseja continuar?`;
+}
+
 const ERRO_HORARIO_OCUPADO = "Um dos horários acabou de ser bloqueado. Confira a agenda e tente de novo.";
 
 /** Volta para a agenda mostrando o resultado de uma ação na recorrência. */
@@ -133,7 +160,7 @@ export async function salvarAgendamento(_e: EstadoForm, dados: FormData): Promis
 
   // Alterar um horário de recorrência: é preciso dizer se vale só para ele ou para todos
   const { data: atual } = id
-    ? await supabase.from("agendamentos").select("inicio, profissional_id, grupo_repeticao").eq("id", id).maybeSingle()
+    ? await supabase.from("agendamentos").select("inicio, fim, profissional_id, grupo_repeticao").eq("id", id).maybeSingle()
     : { data: null };
   if (id && !atual) return { erro: "Agendamento não encontrado." };
   if (atual?.grupo_repeticao && escopo !== "este" && escopo !== "todos") {
@@ -177,6 +204,22 @@ export async function salvarAgendamento(_e: EstadoForm, dados: FormData): Promis
       else datasLivres.push({ data: d, blocos: blocosDia });
     }
     if (!datasLivres.length) return { erro: "O horário está bloqueado em todas as datas da recorrência." };
+  }
+
+  // Já tem cliente no horário: pergunta antes de gravar (ao editar, só se o horário ou a profissional mudou)
+  if (texto(dados, "confirmou_horario") !== "1") {
+    const mudouHorario = !atual || periodos[0].profissional_id !== atual.profissional_id
+      || new Date(periodos[0].inicio).getTime() !== new Date(atual.inicio).getTime()
+      || new Date(periodos[0].fim).getTime() !== new Date(atual.fim).getTime();
+    const aConferir = recorrencia
+      ? datasLivres.flatMap((d) => d.blocos.map((b) => ({
+          profissional_id: b.profissional_id, inicio: b.inicio, fim: new Date(new Date(b.inicio).getTime() + b.duracao_min * 60000).toISOString(),
+        })))
+      : periodos;
+    if (mudouHorario) {
+      const pergunta = await perguntaMesmoHorario(supabase, aConferir, { id, grupo: alterarTodos ? atual?.grupo_repeticao : null });
+      if (pergunta) return { confirmar: pergunta };
+    }
   }
 
   if (!clienteId) {

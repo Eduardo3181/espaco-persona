@@ -41,7 +41,7 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - Uma coluna por profissional, horários de 30 em 30 min (08:00 às 20:00), mini calendário para trocar o dia
 - Um agendamento pode ter **vários serviços** (ex.: "Corte feminino, Escova")
 - Status com cores: agendado/confirmado, aguardando confirmação, em atendimento (comanda aberta), concluído, horário bloqueado (almoço, ausência)
-- A mesma profissional pode ter **mais de uma cliente no mesmo horário** (07/11/2026): os cartões ficam lado a lado. Não pode agendar em cima de horário bloqueado nem bloquear em cima de agendamento
+- A mesma profissional pode ter **mais de uma cliente no mesmo horário** (07/11/2026): os cartões ficam lado a lado, e o sistema pergunta "Já existe cliente neste horário. Deseja continuar?" antes de gravar. Não pode agendar em cima de horário bloqueado nem bloquear em cima de agendamento
 - **Bloquear horário** e **novo agendamento** (cliente, profissional, serviços, data, hora; duração somada dos serviços)
 - Clicar num atendimento abre ou cria a comanda
 
