@@ -6,11 +6,12 @@ import { MESES, centavosParaCampo, formatarDiaISO, formatarReais, hojeISO } from
 import { criarClienteServidor } from "@/lib/supabase/server";
 import { GRUPOS, ehReceita, somarMeses, statusDe, type Categoria, type Conta, type Lancamento, type Status } from "@/lib/gestao";
 import { buscarCadastros } from "./dados";
+import { CampoRepeticao } from "./campo-repeticao";
 import { desfazerPago, excluirLancamento, marcarPago, salvarLancamento } from "./actions";
 
 type Filtros = { mes: string; tipo: string; situacao: string; editar?: string };
 
-const CAMPOS = "id, categoria_id, conta_id, descricao, valor_centavos, valor_real_centavos, vencimento, pagamento, repeticao_id";
+const CAMPOS = "id, categoria_id, conta_id, descricao, valor_centavos, valor_real_centavos, vencimento, pagamento, repeticao_id, repeticao_tipo, parcela_numero, parcelas_total";
 
 function SeloStatus({ status, receita }: { status: Status; receita: boolean }) {
   if (status === "pago") return <Etiqueta tom="sucesso">{receita ? "Recebido" : "Pago"}</Etiqueta>;
@@ -126,8 +127,10 @@ export async function AbaLancamentos({ mes, tipo, situacao, editar }: Filtros) {
                   <p className="text-xs text-suave">
                     {l.descricao && `${c.nome} · `}{l.conta_id ? `${contaDe.get(l.conta_id)} · ` : ""}vence {formatarDiaISO(l.vencimento)}
                     {l.pagamento && ` · ${receita ? "recebido" : "pago"} ${formatarDiaISO(l.pagamento)}`}
-                    {l.repeticao_id && " · repete"}
                   </p>
+                  {l.repeticao_tipo && (
+                    <p className="mt-1"><Etiqueta tom="rose">{l.repeticao_tipo === "parcelada" ? `Parcela ${l.parcela_numero}/${l.parcelas_total}` : "Todo mês"}</Etiqueta></p>
+                  )}
                 </div>
                 <div className="flex gap-4 text-right text-sm">
                   <p><span className="block text-xs text-suave">Visão</span><span className={`font-semibold ${receita ? "text-sucesso" : ""}`}>{receita ? "+ " : "− "}{formatarReais(l.valor_centavos)}</span></p>
@@ -157,15 +160,16 @@ export async function AbaLancamentos({ mes, tipo, situacao, editar }: Filtros) {
                     </FormAcao>
                   )}
                   <BotaoLink href={`${volta}&editar=${l.id}`} variante="fantasma" className="px-2" aria-label="Editar lançamento"><Pencil size={18} /></BotaoLink>
-                  <FormAcao acao={excluirLancamento}>
-                    <input type="hidden" name="id" value={l.id} /><input type="hidden" name="volta" value={volta} />
-                    <input type="hidden" name="repeticao_id" value={l.pagamento ? "" : l.repeticao_id ?? ""} />
-                    <input type="hidden" name="vencimento" value={l.vencimento} />
-                    <BotaoEnviar variante="fantasma" pendente="…" className="px-2"
-                      confirmar={l.repeticao_id && !l.pagamento ? "Excluir esta conta e as próximas repetições em aberto?" : "Excluir este lançamento?"}>
-                      <Trash2 size={18} aria-label="Excluir lançamento" />
-                    </BotaoEnviar>
-                  </FormAcao>
+                  {l.repeticao_id ? (
+                    <BotaoLink href={`${volta}&editar=${l.id}`} variante="fantasma" className="px-2" aria-label="Excluir lançamento"><Trash2 size={18} /></BotaoLink>
+                  ) : (
+                    <FormAcao acao={excluirLancamento}>
+                      <input type="hidden" name="id" value={l.id} /><input type="hidden" name="volta" value={volta} />
+                      <BotaoEnviar variante="fantasma" pendente="…" className="px-2" confirmar="Excluir este lançamento?">
+                        <Trash2 size={18} aria-label="Excluir lançamento" />
+                      </BotaoEnviar>
+                    </FormAcao>
+                  )}
                 </div>
               </li>
             );
@@ -181,6 +185,7 @@ function FormLancamento({ chave, categorias, contas, emEdicao, volta, hoje }: {
   chave: string; categorias: Categoria[]; contas: Conta[]; emEdicao: Lancamento | null; volta: string; hoje: string;
 }) {
   const ativasOuAtual = (c: { id: string; ativo: boolean }, atual?: string | null) => c.ativo || c.id === atual;
+  const emSerie = Boolean(emEdicao?.repeticao_id);
   return (
     <Cartao>
       <h2 className="mb-4 text-lg font-semibold">{emEdicao ? "Editar lançamento" : "Novo lançamento"}</h2>
@@ -218,19 +223,40 @@ function FormLancamento({ chave, categorias, contas, emEdicao, volta, hoje }: {
         <Campo rotulo="Pago ou recebido em" dica="Deixe vazio se ainda está em aberto.">
           <input name="pagamento" type="date" max={hoje} defaultValue={emEdicao?.pagamento ?? ""} className={classeInput} />
         </Campo>
-        {!emEdicao && (
-          <Campo rotulo="Repetir">
-            <select name="repetir" defaultValue="1" className={classeInput}>
-              <option value="1">Não repetir</option>
-              {[3, 6, 12, 24].map((n) => <option key={n} value={n}>Todo mês, por {n} meses</option>)}
-            </select>
-          </Campo>
-        )}
+        {emSerie ? (
+          <label className="flex min-h-11 items-center gap-3 text-sm sm:col-span-2">
+            <input type="checkbox" name="aplicar_proximos" className="size-5 accent-rose" />
+            Aplicar categoria, descrição, conta e Visão também aos próximos meses em aberto
+          </label>
+        ) : <CampoRepeticao />}
         <div className="flex gap-3 sm:col-span-2">
           <BotaoEnviar>Salvar</BotaoEnviar>
           <BotaoLink href={volta} variante="secundario">Cancelar</BotaoLink>
         </div>
       </FormAcao>
+      {emEdicao && emSerie && (
+        <div className="mt-4 flex flex-col gap-2 border-t border-borda pt-4">
+          <p className="text-sm font-medium">
+            {emEdicao.repeticao_tipo === "parcelada" ? `Parcela ${emEdicao.parcela_numero} de ${emEdicao.parcelas_total}` : "Conta recorrente, todo mês"}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <FormAcao acao={excluirLancamento}>
+              <input type="hidden" name="id" value={emEdicao.id} /><input type="hidden" name="volta" value={volta} />
+              <BotaoEnviar variante="perigo" pendente="Excluindo…" confirmar="Excluir só este mês?">Excluir só este mês</BotaoEnviar>
+            </FormAcao>
+            {!emEdicao.pagamento && (
+              <FormAcao acao={excluirLancamento}>
+                <input type="hidden" name="id" value={emEdicao.id} /><input type="hidden" name="volta" value={volta} />
+                <input type="hidden" name="escopo" value="proximos" />
+                <BotaoEnviar variante="perigo" pendente="Excluindo…"
+                  confirmar={emEdicao.repeticao_tipo === "parcelada" ? "Excluir esta parcela e as próximas em aberto?" : "Excluir este mês e os próximos em aberto? A conta para de se repetir."}>
+                  {emEdicao.repeticao_tipo === "parcelada" ? "Excluir esta e as próximas" : "Excluir este e parar de repetir"}
+                </BotaoEnviar>
+              </FormAcao>
+            )}
+          </div>
+        </div>
+      )}
     </Cartao>
   );
 }

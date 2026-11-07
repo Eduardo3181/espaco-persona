@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Abas } from "@/components/ui";
 import { hojeISO } from "@/lib/formato";
 import { exigirDono } from "@/lib/sessao";
+import { criarClienteServidor } from "@/lib/supabase/server";
 import { AbaAnalise } from "./analise";
 import { AbaFluxo } from "./fluxo";
 import { AbaLancamentos } from "./lancamentos";
@@ -22,6 +23,8 @@ const ABAS = [
 
 export default async function PaginaGestao({ searchParams }: PageProps<"/gestao">) {
   await exigirDono();
+  const supabase = await criarClienteServidor();
+  await supabase.rpc("gestao_estender_recorrentes");
   const sp = await searchParams;
   const s = (campo: string) => (typeof sp[campo] === "string" ? (sp[campo] as string) : undefined);
   const aba = ABAS.some((a) => a.id === s("aba")) ? s("aba")! : "painel";

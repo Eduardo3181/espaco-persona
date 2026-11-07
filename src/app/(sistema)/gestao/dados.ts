@@ -12,7 +12,7 @@ export async function buscarCadastros(supabase: Supabase) {
   return { categorias: (categorias ?? []) as Categoria[], contas: (contas ?? []) as Conta[] };
 }
 
-const CAMPOS = "id, categoria_id, conta_id, descricao, valor_centavos, valor_real_centavos, vencimento, pagamento, repeticao_id";
+const CAMPOS = "id, categoria_id, conta_id, descricao, valor_centavos, valor_real_centavos, vencimento, pagamento, repeticao_id, repeticao_tipo, parcela_numero, parcelas_total";
 
 /** Lançamentos com vencimento ou pagamento no período, mais tudo o que está em aberto. */
 export async function buscarLancamentosDoPeriodo(supabase: Supabase, inicio: string, fim: string) {

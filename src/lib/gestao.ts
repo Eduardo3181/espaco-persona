@@ -26,6 +26,7 @@ export type Lancamento = {
   /** Realidade: quanto foi de fato (vazio = ainda não informado) */
   valor_real_centavos: number | null;
   vencimento: string; pagamento: string | null; repeticao_id: string | null;
+  repeticao_tipo: "recorrente" | "parcelada" | null; parcela_numero: number | null; parcelas_total: number | null;
 };
 export type Automatico = {
   mes: string; faturamento: number; taxas: number; comissoes: number;
