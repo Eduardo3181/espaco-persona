@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Relatórios" };
 type Modo = "dia" | "semana" | "mes" | "personalizado";
 
 type Relatorio = {
-  totais: { faturamento: number; descontos: number; caixinhas: number; taxas: number; comissoes: number; comandas: number; clientes: number };
+  totais: { faturamento: number; descontos: number; custo_produtos: number; caixinhas: number; taxas: number; comissoes: number; comandas: number; clientes: number };
   por_dia: { dia: string; valor: number }[];
   por_item: { tipo: string; descricao: string; quantidade: number; valor: number }[];
   por_forma: { forma: string; valor: number; taxa: number }[];
@@ -72,8 +72,8 @@ export default async function PaginaRelatorios({ searchParams }: PageProps<"/rel
     previstoDe(mes.inicio, mes.fim),
   ]);
   const r = data as Relatorio | null;
-  const t = r?.totais ?? { faturamento: 0, descontos: 0, caixinhas: 0, taxas: 0, comissoes: 0, comandas: 0, clientes: 0 };
-  const resultado = t.faturamento - t.comissoes - t.taxas;
+  const t = r?.totais ?? { faturamento: 0, descontos: 0, custo_produtos: 0, caixinhas: 0, taxas: 0, comissoes: 0, comandas: 0, clientes: 0 };
+  const resultado = t.faturamento - t.comissoes - t.taxas - t.custo_produtos;
 
   // Todos os dias do período, inclusive os sem venda
   const porDiaMap = new Map((r?.por_dia ?? []).map((d) => [d.dia, d.valor]));
@@ -128,7 +128,8 @@ export default async function PaginaRelatorios({ searchParams }: PageProps<"/rel
         </div>
         <Indicador rotulo="Comissões" valor={formatarReais(t.comissoes)} />
         <Indicador rotulo="Taxas da maquininha" valor={formatarReais(t.taxas)} />
-        <Indicador rotulo="Resultado" valor={formatarReais(resultado)} destaque dica="vendas − comissões − taxas" />
+        <Indicador rotulo="Resultado" valor={formatarReais(resultado)} destaque dica="vendas − comissões − taxas − produtos usados" />
+        <Indicador rotulo="Produtos usados (custo)" valor={formatarReais(t.custo_produtos)} />
         <Indicador rotulo="Comandas fechadas" valor={String(t.comandas)} />
         <Indicador rotulo="Ticket médio" valor={formatarReais(t.comandas ? Math.round(t.faturamento / t.comandas) : 0)} />
         <Indicador rotulo="Clientes atendidas" valor={String(t.clientes)} />
@@ -141,7 +142,7 @@ export default async function PaginaRelatorios({ searchParams }: PageProps<"/rel
         <>
           <Cartao>
             <h3 className="mb-3 font-semibold">Para onde vai o dinheiro</h3>
-            <ParaOndeVai faturamento={t.faturamento} comissoes={t.comissoes} taxas={t.taxas} />
+            <ParaOndeVai faturamento={t.faturamento} comissoes={t.comissoes} taxas={t.taxas} produtos={t.custo_produtos} />
           </Cartao>
 
           {dias.length > 1 && (

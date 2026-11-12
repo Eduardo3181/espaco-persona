@@ -30,7 +30,7 @@ const FORMAS: { id: Forma; rotulo: string }[] = [
 
 type Linha = { forma: Forma; valor: string; parcelas: number };
 
-export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais, pagamentosIniciais, taxas, taxasCredito, descontoPix, temCliente, saldoCliente, atendimento }: {
+export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais, pagamentosIniciais, taxas, taxasCredito, descontoPix, custoProdutos, temCliente, saldoCliente, atendimento }: {
   comandaId: string;
   itens: ItemFechamento[];
   profissionais: { id: string; nome: string }[];
@@ -41,6 +41,8 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
   taxasCredito: Record<number, number>;
   /** Desconto automático no Pix, em % (0 = sem desconto) */
   descontoPix: number;
+  /** Custo dos produtos de uso lançados nos serviços (estimado com o preço de hoje) */
+  custoProdutos: number;
   temCliente: boolean;
   saldoCliente: number;
   /** Dia em que a comanda entra no faturamento; só a avulsa pode escolher */
@@ -206,6 +208,9 @@ export function Fechamento({ comandaId, itens, profissionais, caixinhasIniciais,
           <dt className="text-suave">Taxa da maquininha (estimada)</dt><dd className="text-right text-suave">− {formatarReais(taxaTotal)}</dd>
           <dt className="mt-2 border-t border-borda pt-2 text-base font-bold">Total a receber</dt>
           <dd className="mt-2 border-t border-borda pt-2 text-right text-base font-bold">{formatarReais(totalReceber)}</dd>
+          {custoProdutos > 0 && (
+            <><dt className="mt-1 text-suave">Custo dos produtos usados (estimado)</dt><dd className="mt-1 text-right text-suave">{formatarReais(custoProdutos)}</dd></>
+          )}
         </dl>
         {semRegra.length > 0 && (
           <p className="mt-3 flex gap-2 rounded-lg bg-aguardando-fundo p-2 text-xs text-aguardando">

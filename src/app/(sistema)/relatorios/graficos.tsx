@@ -1,20 +1,22 @@
 import { formatarReais } from "@/lib/formato";
 
 // Gráficos simples em HTML (sem biblioteca). Paleta validada para daltonismo:
-// comissões #B4583A · taxas #6250D6 · fica no salão #1BAF7A (com rótulos sempre visíveis).
+// comissões #B4583A · taxas #6250D6 · produtos usados #C98A12 · fica no salão #1BAF7A (com rótulos sempre visíveis).
 
 export const COR_COMISSAO = "#B4583A";
 export const COR_TAXA = "#6250D6";
 export const COR_SALAO = "#1BAF7A";
+export const COR_PRODUTOS = "#C98A12";
 export const COR_BARRA = "#B4583A";
 
 /** Barra empilhada "para onde vai o dinheiro" com legenda e valores visíveis */
-export function ParaOndeVai({ faturamento, comissoes, taxas }: { faturamento: number; comissoes: number; taxas: number }) {
+export function ParaOndeVai({ faturamento, comissoes, taxas, produtos = 0 }: { faturamento: number; comissoes: number; taxas: number; produtos?: number }) {
   if (faturamento <= 0) return <p className="text-sm text-suave">Sem vendas no período.</p>;
-  const sobra = Math.max(faturamento - comissoes - taxas, 0);
+  const sobra = Math.max(faturamento - comissoes - taxas - produtos, 0);
   const partes = [
     { rotulo: "Comissões", valor: comissoes, cor: COR_COMISSAO },
     { rotulo: "Taxas da maquininha", valor: taxas, cor: COR_TAXA },
+    ...(produtos > 0 ? [{ rotulo: "Produtos usados", valor: produtos, cor: COR_PRODUTOS }] : []),
     { rotulo: "Fica no salão", valor: sobra, cor: COR_SALAO },
   ];
   const pct = (v: number) => (v / faturamento) * 100;
@@ -30,7 +32,7 @@ export function ParaOndeVai({ faturamento, comissoes, taxas }: { faturamento: nu
           </div>
         ))}
       </div>
-      <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+      <ul className={`mt-3 grid gap-2 text-sm ${partes.length > 3 ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
         {partes.map((p) => (
           <li key={p.rotulo} className="flex items-start gap-2">
             <span className="mt-1 size-3 shrink-0 rounded-sm" style={{ background: p.cor }} aria-hidden />

@@ -159,3 +159,51 @@ export async function reabrirComanda(_e: EstadoForm, dados: FormData): Promise<E
   revalidatePath("/clientes", "layout");
   redirect(`/comandas/${comandaId}`);
 }
+
+// ---------------------------------------------------------------- Produtos de uso (fórmula) — só dono
+
+const gramas = (v: string) => { const n = Number(v.replace(",", ".")); return Number.isFinite(n) && n > 0 && n <= 10000 ? Math.round(n * 100) / 100 : null; };
+
+export async function adicionarFormula(_e: EstadoForm, dados: FormData): Promise<EstadoForm> {
+  await exigirDono();
+  const comandaId = texto(dados, "comanda_id");
+  const produto = texto(dados, "produto_uso_id");
+  const quantidade = gramas(texto(dados, "quantidade"));
+  if (!produto) return { erro: "Escolha o produto." };
+  if (quantidade === null) return { erro: "Quantidade inválida (em gramas, ex.: 30)." };
+  const supabase = await criarClienteServidor();
+  const { error } = await supabase.from("comanda_produtos_uso")
+    .insert({ comanda_item_id: texto(dados, "item_id"), produto_uso_id: produto, quantidade });
+  if (error) return { erro: erroDoBanco(error, "Não foi possível adicionar o produto.") };
+  atualizar(comandaId);
+  redirect(`/comandas/${comandaId}`);
+}
+
+export async function removerFormula(_e: EstadoForm, dados: FormData): Promise<EstadoForm> {
+  await exigirDono();
+  const comandaId = texto(dados, "comanda_id");
+  const supabase = await criarClienteServidor();
+  const { error } = await supabase.from("comanda_produtos_uso").delete().eq("id", texto(dados, "id"));
+  if (error) return { erro: erroDoBanco(error, "Não foi possível remover o produto.") };
+  atualizar(comandaId);
+  redirect(`/comandas/${comandaId}`);
+}
+
+/** Copia a última fórmula da cliente (de preferência do mesmo serviço) para este serviço. */
+export async function repetirFormula(_e: EstadoForm, dados: FormData): Promise<EstadoForm> {
+  await exigirDono();
+  const comandaId = texto(dados, "comanda_id");
+  const itemId = texto(dados, "item_id");
+  const supabase = await criarClienteServidor();
+  const { data: item } = await supabase.from("comanda_itens").select("servico_id, comandas(cliente_id)").eq("id", itemId).maybeSingle();
+  const clienteId = (item?.comandas as unknown as { cliente_id: string | null } | null)?.cliente_id;
+  if (!clienteId) return { erro: "Esta comanda não tem cliente." };
+  const { data: ultima } = await supabase.rpc("ultima_formula_cliente", { p_cliente_id: clienteId, p_servico_id: item?.servico_id ?? null });
+  const produtos = ((ultima as { produtos?: { produto_uso_id: string; quantidade: number }[] } | null)?.produtos ?? []);
+  if (!produtos.length) return { erro: "A cliente ainda não tem fórmula registrada." };
+  const { error } = await supabase.from("comanda_produtos_uso")
+    .insert(produtos.map((p) => ({ comanda_item_id: itemId, produto_uso_id: p.produto_uso_id, quantidade: p.quantidade })));
+  if (error) return { erro: erroDoBanco(error, "Não foi possível repetir a fórmula.") };
+  atualizar(comandaId);
+  redirect(`/comandas/${comandaId}`);
+}

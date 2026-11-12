@@ -14,6 +14,8 @@ import {
   alterarValorItem, cancelarComanda, reabrirComanda, removerItem, trocarCliente,
 } from "../actions";
 import { AdicionarItem } from "./adicionar-item";
+import { FormulaItem, type LinhaFormula, type OpcaoProdutoUso } from "./formula";
+import { custoPorGrama, nomeProdutoUso, ordenarProdutosUso, TIPOS_USO, type ProdutoUso } from "@/lib/produtos-uso";
 import { categoriasBloqueadas } from "../../agenda/dados";
 import { Fechamento, type ItemFechamento } from "./fechamento";
 
@@ -45,6 +47,40 @@ function diaDoAtendimento(inicioAgenda: string | null, salvo: string | null) {
     return { dia: dia < hoje ? dia : hoje, hoje, daAgenda: true };
   }
   return { dia: salvo ?? hoje, hoje, daAgenda: false };
+}
+
+type FormulaBanco = {
+  id: string; comanda_item_id: string; quantidade: number; custo_centavos: number | null;
+  produtos_uso: Pick<ProdutoUso, "tipo" | "numero" | "nome" | "unidade" | "embalagem_qtd" | "valor_compra_centavos">;
+};
+
+/** Fórmulas dos serviços, produtos de uso para escolher e se a cliente já tem fórmula para repetir. */
+async function dadosFormula(supabase: Supabase, itemIds: string[], clienteId: string | null) {
+  const [{ data: linhas }, { data: produtos }, ultima] = await Promise.all([
+    itemIds.length
+      ? supabase.from("comanda_produtos_uso")
+        .select("id, comanda_item_id, quantidade, custo_centavos, produtos_uso(tipo, numero, nome, unidade, embalagem_qtd, valor_compra_centavos)")
+        .in("comanda_item_id", itemIds).order("criado_em")
+      : Promise.resolve({ data: [] }),
+    supabase.from("produtos_uso").select("*").eq("ativo", true),
+    clienteId ? supabase.rpc("ultima_formula_cliente", { p_cliente_id: clienteId }) : Promise.resolve({ data: null }),
+  ]);
+  const porItem = new Map<string, LinhaFormula[]>();
+  for (const l of (linhas ?? []) as unknown as FormulaBanco[]) {
+    // Comanda aberta: custo estimado com o preço de hoje; fechada: o custo gravado no dia
+    const estimado = Math.round(Number(l.quantidade) * (custoPorGrama(l.produtos_uso) ?? 0));
+    const linha = {
+      id: l.id, produto: nomeProdutoUso(l.produtos_uso), quantidade: Number(l.quantidade),
+      unidade: l.produtos_uso.unidade, custo_centavos: l.custo_centavos ?? estimado,
+    };
+    porItem.set(l.comanda_item_id, [...(porItem.get(l.comanda_item_id) ?? []), linha]);
+  }
+  const opcoes: OpcaoProdutoUso[] = ordenarProdutosUso((produtos ?? []) as ProdutoUso[]).map((x) => ({
+    id: x.id, nome: nomeProdutoUso(x), grupo: TIPOS_USO.find((t) => t.id === x.tipo)?.rotulo ?? "Outros", unidade: x.unidade,
+    detalhe: x.familia ?? undefined,
+  }));
+  const custoTotal = [...porItem.values()].flat().reduce((t, l) => t + l.custo_centavos, 0);
+  return { porItem, opcoes, custoTotal, podeRepetir: Boolean(ultima.data) };
 }
 
 async function catalogo(supabase: Supabase) {
@@ -111,6 +147,7 @@ async function ComandaDono({ id, supabase, acabouDeFechar, juntada }: { id: stri
   };
   const itens = [...c.comanda_itens].sort((a, b) => a.descricao.localeCompare(b.descricao));
   const aberta = c.status === "aberta";
+  const formula = await dadosFormula(supabase, itens.map((i) => i.id), c.cliente_id);
 
   const [cat, { data: regras }, { data: cfg }, { data: saldoLinha }, { data: abertas }] = await Promise.all([
     catalogo(supabase),
@@ -230,6 +267,10 @@ async function ComandaDono({ id, supabase, acabouDeFechar, juntada }: { id: stri
                   ) : (
                     <span className="font-semibold">{formatarReais(i.valor_total_centavos)}</span>
                   )}
+                  {i.tipo === "servico" && (
+                    <FormulaItem comandaId={c.id} itemId={i.id} linhas={formula.porItem.get(i.id) ?? []} produtos={formula.opcoes}
+                      aberta={aberta} podeRepetir={formula.podeRepetir} />
+                  )}
                 </li>
               ))}
             </ul>
@@ -262,6 +303,7 @@ async function ComandaDono({ id, supabase, acabouDeFechar, juntada }: { id: stri
                     .map(([n, taxa]) => [n, Number(taxa)]),
                 )}
                 descontoPix={Number(cfg?.desconto_pix ?? 0)}
+                custoProdutos={formula.custoTotal}
                 temCliente={Boolean(c.cliente_id)}
                 saldoCliente={(saldoLinha as { saldo_centavos: number } | null)?.saldo_centavos ?? 0}
                 atendimento={diaDoAtendimento(c.agendamentos?.inicio ?? null, c.data_atendimento)}
@@ -285,7 +327,7 @@ async function ComandaDono({ id, supabase, acabouDeFechar, juntada }: { id: stri
 
 function ResumoFechada({ c }: {
   c: { id: string; status: string; data_atendimento: string | null; fechada_em: string | null; cancelada_em: string | null; motivo: string | null;
-    total_itens_centavos: number | null; total_desconto_centavos: number; total_caixinhas_centavos: number | null; total_taxas_centavos: number | null; total_comissoes_centavos: number | null;
+    total_itens_centavos: number | null; total_desconto_centavos: number; total_custo_produtos_centavos: number; total_caixinhas_centavos: number | null; total_taxas_centavos: number | null; total_comissoes_centavos: number | null;
     comanda_caixinhas: { profissional_id: string; valor_centavos: number }[];
     comanda_pagamentos: { ordem: number; forma: string; valor_centavos: number; parcelas: number; taxa_percentual: number | null; taxa_centavos: number | null }[] };
 }) {
@@ -321,6 +363,9 @@ function ResumoFechada({ c }: {
           <dt>Caixinhas (repasse)</dt><dd className="text-right">{formatarReais(c.total_caixinhas_centavos ?? 0)}</dd>
           <dt className="text-suave">Taxas da maquininha</dt><dd className="text-right text-suave">− {formatarReais(c.total_taxas_centavos ?? 0)}</dd>
           <dt className="font-bold">Total recebido</dt><dd className="text-right font-bold">{formatarReais(recebido)}</dd>
+          {c.total_custo_produtos_centavos > 0 && (
+            <><dt className="mt-1 text-suave">Custo dos produtos usados</dt><dd className="mt-1 text-right text-suave">{formatarReais(c.total_custo_produtos_centavos)}</dd></>
+          )}
         </dl>
         <p className="mt-2 text-xs text-suave">
           Fechada em {c.fechada_em && formatarDataHora(c.fechada_em)}.

@@ -10,6 +10,7 @@ import {
   formatarAniversario, formatarDataHora, formatarDiaISO, formatarReais, formatarTelefone, linkWhatsApp,
   MESES,
 } from "@/lib/formato";
+import { formatarQuantidade } from "@/lib/produtos-uso";
 import { STATUS, dataPorExtenso, partesSP, type StatusAgendamento } from "@/lib/agenda";
 import { RetornosCliente } from "./retornos";
 import { apagarAnotacao, apagarMovimento, criarAnotacao, editarAnotacao, lancarSaldo, salvarFicha } from "../actions";
@@ -27,7 +28,9 @@ type Visita = {
   itens: { descricao: string; quantidade: number; profissional_id: string; profissional_nome: string; valor_centavos: number | null }[];
   pagamentos: { forma: string; valor_centavos: number }[] | null;
   anotacoes: { texto: string; autor: string | null }[];
+  produtos: { servico: string; produto: string; quantidade: number; unidade: string; custo_centavos: number | null }[];
 };
+type UltimaFormula = { servico: string; data: string; produtos: { produto: string; quantidade: number; unidade: string }[] } | null;
 const NOME_FORMA: Record<string, string> = { pix: "Pix", credito: "Crédito", debito: "Débito", dinheiro: "Dinheiro", saldo: "Saldo" };
 type Movimento = { id: string; valor_centavos: number; descricao: string; criado_em: string };
 
@@ -63,10 +66,12 @@ export default async function FichaCliente({ params, searchParams }: PageProps<"
   const agora = new Date().toISOString();
 
   // Resumo e histórico (valores só chegam para o dono — funções do banco)
-  const [{ data: resumoData }, { data: histData }] = await Promise.all([
+  const [{ data: resumoData }, { data: histData }, { data: ultimaData }] = await Promise.all([
     supabase.rpc("resumo_cliente", { p_cliente_id: id }),
     supabase.rpc("historico_cliente", { p_cliente_id: id }),
+    supabase.rpc("ultima_formula_cliente", { p_cliente_id: id }),
   ]);
+  const ultimaFormula = ultimaData as UltimaFormula;
   const resumo = (resumoData ?? {}) as { ultima_visita?: string | null; visitas?: number; frequencia_dias?: number | null; servico_mais_feito?: string | null; total_gasto_centavos?: number | null };
   const filtroProf = typeof sp.prof === "string" ? sp.prof : "";
   const historico = ((histData ?? []) as Visita[]).filter((v) => !filtroProf || v.itens.some((i) => i.profissional_id === filtroProf));
@@ -162,6 +167,13 @@ export default async function FichaCliente({ params, searchParams }: PageProps<"
             </Campo>
             <div><BotaoEnviar>Salvar ficha técnica</BotaoEnviar></div>
           </FormAcao>
+          {ultimaFormula && (
+            <div className="mt-4 rounded-lg bg-fundo p-3 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-rose">Última fórmula registrada</p>
+              <p className="mb-1 text-xs text-suave">{ultimaFormula.servico} · {formatarDiaISO(ultimaFormula.data)}</p>
+              <ul>{ultimaFormula.produtos.map((p, k) => <li key={k}>{p.produto} — {formatarQuantidade(p.quantidade, p.unidade)}</li>)}</ul>
+            </div>
+          )}
         </Cartao>
 
         {/* Anotações */}
@@ -352,6 +364,16 @@ export default async function FichaCliente({ params, searchParams }: PageProps<"
                           </li>
                         ))}
                       </ul>
+                      {v.produtos.length > 0 && (
+                        <ul className="mt-1 rounded bg-fundo px-2 py-1 text-xs">
+                          {v.produtos.map((p, k) => (
+                            <li key={k} className="flex justify-between gap-2">
+                              <span>{p.produto} — {formatarQuantidade(p.quantidade, p.unidade)}</span>
+                              {ehDono && p.custo_centavos !== null && <span className="text-suave">{formatarReais(p.custo_centavos)}</span>}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                       {ehDono && v.pagamentos && (
                         <p className="mt-1 text-xs text-suave">Pago: {v.pagamentos.map((g) => `${NOME_FORMA[g.forma] ?? g.forma} ${formatarReais(g.valor_centavos)}`).join(" + ")}</p>
                       )}
