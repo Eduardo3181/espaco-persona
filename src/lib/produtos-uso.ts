@@ -1,7 +1,7 @@
 // Produtos de uso (insumos dos atendimentos). Quantidades em g (ou ml, 1 ml ≈ 1 g).
 // Coloração aparece só pelo número ("Coloração 7.1"); os demais, pelo nome.
 
-export type TipoProdutoUso = "coloracao" | "tonalizante" | "oxidante" | "descolorante" | "matizador" | "tratamento" | "outro";
+export type TipoProdutoUso = "coloracao" | "tonalizante" | "oxidante" | "descolorante" | "matizador" | "hidratacao" | "botox_defrizagem" | "tratamento" | "outro";
 
 export const TIPOS_USO: { id: TipoProdutoUso; rotulo: string }[] = [
   { id: "coloracao", rotulo: "Coloração" },
@@ -9,6 +9,8 @@ export const TIPOS_USO: { id: TipoProdutoUso; rotulo: string }[] = [
   { id: "oxidante", rotulo: "Oxidante" },
   { id: "descolorante", rotulo: "Descolorante" },
   { id: "matizador", rotulo: "Matizador" },
+  { id: "hidratacao", rotulo: "Hidratação" },
+  { id: "botox_defrizagem", rotulo: "Botox/defrizagem" },
   { id: "tratamento", rotulo: "Tratamento" },
   { id: "outro", rotulo: "Outro" },
 ];
