@@ -84,6 +84,19 @@ begin
   exception when others then r := r || ' prof consumo bloqueado OK;';
   end;
 
+  -- Apagar a cliente (LGPD) com comanda aberta e fórmula: a cascata não pode ser barrada
+  perform set_config('role', 'postgres', true);
+  insert into public.clientes (nome) values ('ZZ Teste Exclusão') returning id into v_cliente;
+  insert into public.comandas (cliente_id, status) values (v_cliente, 'aberta') returning id into v_comanda;
+  insert into public.comanda_itens (comanda_id, tipo, servico_id, descricao, profissional_id, quantidade, valor_unitario_centavos)
+    values (v_comanda, 'servico', v_serv, 'teste', v_edu, 1, 1000) returning id into v_item;
+  insert into public.comanda_produtos_uso (comanda_item_id, produto_uso_id, quantidade) values (v_item, v_cor, 10);
+  begin
+    delete from public.comandas where id = v_comanda;
+    r := r || ' apagar comanda aberta com fórmula OK;';
+  exception when others then r := r || ' apagar comanda aberta com fórmula: FALHA;'; falhou := true;
+  end;
+
   raise exception 'RESULTADO: %', case when falhou then 'HÁ FALHAS ->' else 'TUDO OK ->' end || r;
 end;
 $$;
