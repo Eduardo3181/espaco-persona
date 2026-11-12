@@ -16,7 +16,7 @@ export function ListaProdutosUso({ produtos }: { produtos: ProdutoUso[] }) {
   const familias = useMemo(() => [...new Set(produtos.map((p) => p.familia).filter((f): f is string => Boolean(f)))], [produtos]);
 
   const visiveis = useMemo(() => {
-    const t = semAcento(termo.trim());
+    const t = semAcento(termo.trim()).replace(",", "."); // 5,0 = 5.0
     return produtos.filter((p) =>
       (!tipo || p.tipo === tipo) && (!familia || p.familia === familia)
       && (!t || (p.numero ?? "").toLowerCase().startsWith(t) || semAcento(nomeProdutoUso(p)).includes(t) || semAcento(p.nome).includes(t)));
@@ -27,7 +27,7 @@ export function ListaProdutosUso({ produtos }: { produtos: ProdutoUso[] }) {
       <div className="grid gap-2 sm:grid-cols-[1fr_12rem_14rem]">
         <div className="relative">
           <Search size={18} className="pointer-events-none absolute top-3 left-3 text-suave" aria-hidden />
-          <input value={termo} onChange={(e) => setTermo(e.target.value)} type="search" placeholder="Buscar por número (ex.: 8.3) ou nome…"
+          <input value={termo} onChange={(e) => setTermo(e.target.value)} type="search" placeholder="Buscar por número (ex.: 8.3 ou 8,3) ou nome…"
             aria-label="Buscar produto de uso" autoComplete="off" className={`${classeInput} pl-10`} />
         </div>
         <select value={tipo} onChange={(e) => setTipo(e.target.value)} aria-label="Filtrar por tipo" className={classeInput}>

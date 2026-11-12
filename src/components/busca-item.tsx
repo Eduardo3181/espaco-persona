@@ -27,8 +27,9 @@ export function BuscaItem({ opcoes, aoEscolher, placeholder = "Buscar…", rotul
 
   const filtradas = useMemo(() => {
     const palavras = semAcento(termo).split(/\s+/).filter(Boolean);
+    // "5,0" também acha "5.0" (números de coloração)
     const lista = palavras.length
-      ? opcoes.filter((o) => { const n = semAcento(o.nome); return palavras.every((p) => n.includes(p)); })
+      ? opcoes.filter((o) => { const n = semAcento(o.nome); return palavras.every((p) => n.includes(p) || n.includes(p.replace(",", "."))); })
       : opcoes;
     return lista.slice(0, 80);
   }, [termo, opcoes]);

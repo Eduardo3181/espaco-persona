@@ -57,7 +57,7 @@ export function FormulaItem({ comandaId, itemId, linhas, produtos, aberta, podeR
                   className="flex min-h-11 min-w-11 items-center justify-center text-suave hover:text-erro"><X size={16} /></button>
               </span>
             ) : (
-              <BuscaItem rotulo="Buscar produto de uso" placeholder="Número da cor (ex.: 7.1) ou oxidante…" opcoes={produtos}
+              <BuscaItem rotulo="Buscar produto de uso" placeholder="Número da cor (ex.: 7.1 ou 7,1) ou oxidante…" opcoes={produtos}
                 aoEscolher={(id) => setEscolhido(produtos.find((p) => p.id === id) ?? null)} />
             )}
             <label className="flex items-center gap-1 text-sm">
