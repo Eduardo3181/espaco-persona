@@ -281,7 +281,7 @@ export function AbaProdutos({ dados, ehDono, editar }: PropsAba) {
           </Campo>
           <Campo rotulo="Comissão de venda (%)">
             <input name="comissao_percentual" inputMode="decimal" required
-              defaultValue={String(emEdicao?.comissao_percentual ?? 10).replace(".", ",")} className={classeInput} />
+              defaultValue={String(emEdicao?.comissao_percentual ?? 0).replace(".", ",")} className={classeInput} />
           </Campo>
           <Campo rotulo="Estoque atual">
             <input name="estoque" type="number" step={1} required defaultValue={emEdicao?.estoque ?? 0} className={classeInput} />
