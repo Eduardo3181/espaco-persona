@@ -7,8 +7,8 @@ Este arquivo é o guia do projeto. Leia-o inteiro no início de cada sessão e s
 Sistema web de gestão para o salão **Espaço Persona – Hair and Beauty** (São Paulo, Brasil), usado no computador da recepção e no celular das profissionais (PWA instalável). Uso interno: **não há agendamento pelas clientes**.
 
 Equipe atual:
-- **Eduardo Persan**: dono, cabeleireiro, acesso total, não recebe comissão
-- **Valdete Costa**: cabeleireira e **sócia/dona** — acesso total (perfil dono), **não recebe comissão** (desde 06/11/2026; faz a retirada como pró-labore)
+- **Eduardo Persan**: dono, cabeleireiro, acesso total, **comissão de 50%** (desde 19/11/2026)
+- **Valdete Costa**: cabeleireira e **sócia/dona** — acesso total (perfil dono), **comissão de 50%** (desde 19/11/2026; antes, de 06/11 a 18/11/2026, sem comissão)
 - **Di**: manicure, acesso de profissional
 
 Toda a interface é em **português do Brasil**. Valores em reais (R$ 1.234,56), datas em dd/mm/aaaa, fuso America/Sao_Paulo.
@@ -105,7 +105,7 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - Produtos: comissão de venda própria (padrão 10%)
 - Comissão calculada sobre o **valor cheio do item** (sem descontar taxa da maquininha). Confirmado pelo dono; o único desconto é o automático do Pix (seção 5.4), que não reduz a comissão (o valor do item também pode ser ajustado à mão)
 - Ao fechar a comanda, **gravar o percentual usado em cada item**, para que mudanças futuras de regra não alterem o histórico
-- Valores iniciais: em branco — o dono preenche pelo sistema. Eduardo não recebe comissão
+- Valores iniciais: em branco — o dono preenche pelo sistema. Desde 19/11/2026: Eduardo e Valdete 50% padrão, Di 70% padrão; produtos usam a comissão de venda do próprio produto
 
 ### 5.2 Pagamento de comissões
 - Períodos fixos (07/11/2026): dia 1 a 15 e dia 16 ao fim do mês, ou **Personalizar** com datas escolhidas à mão. O pagamento é sugerido no próximo dia de pagamento depois do fim do período (dias em Configurações) e pode ser mudado ao registrar
@@ -192,3 +192,4 @@ Layout: **menu lateral escuro** com o logo no topo. No celular, o menu vira barr
 - **Contas recorrentes e parceladas (07/11/2026)**: no lançamento, botões Conta única, Recorrente e Parcelada. Recorrente repete todo mês sem fim e fica sempre lançada 12 meses à frente (`gestao_estender_recorrentes`, roda ao abrir a Gestão); a mesma conta (categoria e descrição) já lançada num mês é ligada à recorrência em vez de duplicar. Parcelada: a Visão é o valor de cada parcela, e dá para começar de uma parcela já em andamento. Excluir: só este mês ou este e os próximos em aberto (encerra a recorrência). Editar pode aplicar aos próximos em aberto. Teste: `supabase/tests/gestao_recorrentes.sql`
 - **Categorias bloqueadas (07/11/2026)**: em Equipe, cada profissional tem "Não pode lançar" por categoria de serviço e produto. As categorias somem da agenda e da comanda dela, e o banco recusa o lançamento, inclusive quando o dono lança em nome dela; o que já estava lançado não muda. Di: bloqueadas Coloração e reflexo, Cortes, Escova e finalização, Mega hair, Penteados, Tratamentos e Produtos para cabelo. Teste: `supabase/tests/categorias_bloqueadas.sql`
 - **Produtos de uso (12/11/2026)**: menu "Produtos de uso" (só dono), com Produtos (cadastro com custo por g/ml, estoque em embalagens, busca por número ou nome, filtro por tipo e família), Consumo do mês e Sugestão de pedido (consumo médio dos últimos 3 meses + mínimo − estoque, em embalagens inteiras, com texto para o fornecedor). 72 produtos importados da planilha `produtos_uso_2.xlsx` (66 cores, 4 oxidantes, descolorante e matizador), com valores e estoques em branco. Coloração aparece só pelo número; a busca aceita vírgula ou ponto (5,0 = 5.0). Tipos: coloração, tonalizante (12/11/2026), oxidante, descolorante, matizador, hidratação e botox/defrizagem (13/11/2026), tratamento e outro. Na comanda, cada serviço tem "Produtos usados (fórmula)" e "Repetir última fórmula" (só dono); ao fechar, grava o custo por grama do dia e baixa do estoque; reabrir devolve. A comanda mostra só o custo dos produtos (sem "fica para o salão", decisão do dono). Ficha da cliente mostra a última fórmula e os produtos de cada visita (custo só para o dono). Relatórios: o resultado desconta o custo dos produtos; a Gestão não, porque já conta a compra dos cosméticos (decisão do dono). Tabelas `produtos_uso` e `comanda_produtos_uso`. Teste: `supabase/tests/produtos_uso.sql`
+- **Comissão dos donos (19/11/2026)**: Eduardo e Valdete passaram a receber 50% (regra padrão). As comandas fechadas de novembro/2026 deles foram recalculadas no banco (comissão nos itens, lançamentos em Comissões e total da comanda), com registro no log de auditoria
